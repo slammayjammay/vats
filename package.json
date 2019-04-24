@@ -1,0 +1,25 @@
+{
+  "name": "vats",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ansi-escapes": "^3.2.0",
+    "chalk": "^2.4.2",
+    "cli-truncate": "^1.1.0",
+    "deepmerge": "^3.2.0",
+    "minimist": "^1.2.0",
+    "node-pager": "^0.3.3",
+    "slice-ansi": "^2.1.0",
+    "string-argv": "^0.1.2",
+    "string-width": "^4.1.0",
+    "strip-ansi": "^5.0.0",
+    "terminal-jumper": "^1.2.2"
+  }
+}
