@@ -1,4 +1,3 @@
-const { EventEmitter } = require('events');
 const { createInterface } = require('readline');
 const minimist = require('minimist');
 const stringArgv = require('string-argv');
@@ -11,10 +10,8 @@ const RUN_OPTION_DEFAULTS = {
 /**
  * TODO: history!
  */
-class CommandMode extends EventEmitter {
+class CommandMode {
 	constructor() {
-		super();
-
 		this._onKeypress = this._onKeypress.bind(this);
 
 		this.rl = null;
@@ -99,7 +96,6 @@ class CommandMode extends EventEmitter {
 	}
 
 	destroy() {
-		this.removeAllListeners();
 		process.stdin.removeListener('keypress', this._onKeypress);
 		this.rl && this.rl.close();
 		this._isRunning = this._stdinListeners = this._resolve = this.rl = null;

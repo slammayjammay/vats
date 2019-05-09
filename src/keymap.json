@@ -1,0 +1,38 @@
+{
+  "enter": "enter",
+  "return": "enter",
+
+  "UP_ARROW": "vi:cursor-up",
+  "LEFT_ARROW": "vi:cursor-left",
+  "RIGHT_ARROW": "vi:cursor-right",
+  "DOWN_ARROW": "vi:cursor-down",
+
+  "k": "vi:cursor-up",
+  "h": "vi:cursor-left",
+  "l": "vi:cursor-right",
+  "j": "vi:cursor-down",
+
+  "g g": "vi:cursor-to-page-top",
+  "G": "vi:cursor-to-page-bottom",
+
+  "H": "vi:cursor-to-screen-top",
+  "M": "vi:cursor-to-screen-middle",
+  "L": "vi:cursor-to-screen-bottom",
+
+  "ctrl+f": "vi:scroll-full-page-down",
+  "ctrl+b": "vi:scroll-full-page-up",
+  "ctrl+d": "vi:scroll-half-page-down",
+  "ctrl+u": "vi:scroll-half-page-up",
+
+  "z t": "vi:top-align-page-around-cursor",
+  "z z": "vi:center-align-page-around-cursor",
+  "z b": "vi:bottom-align-page-around-cursor",
+
+  "n": "vi:search-next",
+  "N": "vi:search-previous",
+
+  "f": {
+    "send": "vi:find",
+    "read": "readOneChar"
+  }
+}

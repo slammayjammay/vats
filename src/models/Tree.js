@@ -1,20 +1,13 @@
 const { EventEmitter } = require('events');
-const {
-	colorBranch,
-	colorLeaf,
-	highlightBranch,
-	highlightLeaf
-} = require('./color-scheme');
 
-class Node extends EventEmitter {
+class Tree extends EventEmitter {
 	constructor(data = {}) {
 		super();
 
 		this.data = data;
 		this.parent = null;
 		this.children = [];
-		this.highlightedIdx = 0;
-		this.previousHighlightedIdx = -1;
+		this.activeIdx = 0;
 		this.scrollPosY = 0;
 	}
 
@@ -24,7 +17,7 @@ class Node extends EventEmitter {
 	}
 
 	removeChild(nodeOrIdx) {
-		const idx = (nodeOrIdx instanceof Node) ? this.children.indexOf(nodeOrIdx) : nodeOrIdx;
+		const idx = (nodeOrIdx instanceof Tree) ? this.children.indexOf(nodeOrIdx) : nodeOrIdx;
 		if (idx < 0) {
 			return;
 		}
@@ -58,35 +51,30 @@ class Node extends EventEmitter {
 		return this.getChildren().slice(startIdx, endIdx);
 	}
 
-	getPreviousHighlightedChild() {
-		return this.getChildren()[this.previousHighlightedIdx];
-	}
-
 	getHighlightedChild() {
-		return this.getChildren()[this.highlightedIdx];
+		return this.getChildren()[this.activeIdx];
 	}
 
 	update() {
-		const newIdx = this._constrainIdx(this.highlightedIdx);
-		const didUpdate = newIdx !== this.highlightedIdx;
+		const newIdx = this._constrainIdx(this.activeIdx);
+		const didUpdate = newIdx !== this.activeIdx;
 
-		this.highlightedIdx = newIdx;
+		this.activeIdx = newIdx;
 
 		return didUpdate;
 	}
 
 	/**
-	 * @param {Node|number}
+	 * @param {Tree|number}
 	 */
 	setHighlighted(nodeOrIdx) {
-		const idx = nodeOrIdx instanceof Node ? this.getChildren().indexOf(nodeOrIdx) : nodeOrIdx;
+		const idx = nodeOrIdx instanceof Tree ? this.getChildren().indexOf(nodeOrIdx) : nodeOrIdx;
 		const newIdx = this._constrainIdx(idx);
 
-		if (newIdx === this.highlightedIdx) {
+		if (newIdx === this.activeIdx) {
 			return false;
 		} else {
-			this.previousHighlightedIdx = this.highlightedIdx;
-			this.highlightedIdx = newIdx;
+			this.activeIdx = newIdx;
 			return true;
 		}
 	}
@@ -102,7 +90,32 @@ class Node extends EventEmitter {
 	}
 
 	name() {
-		return this.data.name || 'Default Node';
+		return this.data.name || 'Default Tree';
+	}
+
+	/**
+	 * Returns a string that will appear in this node's parent's children list.
+	 *
+	 * @param {idx} [idx] - the index of this node's position in its parent's
+	 * children.
+	 * @param {number} [divWidth] - the available width of the div.
+	 * @return {string}
+	 */
+	toListItemString(idx, divWidth) {
+		return this.name();
+	}
+
+	/**
+	 * Only applicable if this node has no children. In that case, this string
+	 * will be displayed in the rightmost column, instead of the list of children.
+	 *
+	 * @param {idx} [idx] - the index of this node's position in its parent's
+	 * children.
+	 * @param {number} [divWidth] - the available width of the div.
+	 * @return {string}
+	 */
+	toString(idx, divWidth) {
+		return `Showing content for node "${this.data.name}"`;
 	}
 
 	/**
@@ -111,37 +124,19 @@ class Node extends EventEmitter {
 	 * @prop {number} context.width - the available width of the column.
 	 * @return {string|Array<string>}
 	 */
-	displayAsItem(context) {
-		const tuple = [this.name(), null];
+	// toListItemString(context) {
+	// 	const tuple = [this.name(), null];
 
-		if (context.id === 'current' && this.hasChildren()) {
-			tuple[1] = '' + this.getChildren().length;
-		}
+	// 	if (context.id === 'current' && this.hasChildren()) {
+	// 		tuple[1] = '' + this.getChildren().length;
+	// 	}
 
-		return tuple;
-	}
-
-	/**
-	 * @param {object} context
-	 * @prop {string} context.id - the id of the column the node is in.
-	 * @prop {number} context.width - the available width of the column.
-	 * @return {string|Array<string>}
-	 */
-	displayAsContent(context) {
-		return this.name() + ' node';
-	}
-
-	colorDefault() {
-		return this.hasChildren() ? colorBranch : colorLeaf;
-	}
-
-	colorHighlighted() {
-		return this.hasChildren() ? highlightBranch : highlightLeaf;
-	}
+	// 	return tuple;
+	// }
 
 	/**
 	 * @param {string} string - the search string.
-	 * @return {boolean} - whether the search was succesful.
+	 * @return {boolean} - whether the search was successful.
 	 */
 	search(string) {
 		const reg = new RegExp(string, 'i');
@@ -160,8 +155,8 @@ class Node extends EventEmitter {
 		this.removeAllListeners();
 
 		this.data = this.parent = this.children = null;
-		this.highlightedIdx = this.previousHighlightedIdx = null;
+		this.activeIdx = null;
 	}
 }
 
-module.exports = Node;
+module.exports = Tree;

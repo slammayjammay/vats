@@ -1,12 +1,14 @@
 const chalk = require('chalk');
 
+// TODO: add/remove colorschemes
+// TODO: dry using maps or something
 class ColorScheme {
 	constructor() {
 		this.colorHeader = this.colorHeader.bind(this);
-		this.colorBranch = this.colorBranch.bind(this);
-		this.colorLeaf = this.colorLeaf.bind(this);
-		this.highlightBranch = this.highlightBranch.bind(this);
-		this.highlightLeaf = this.highlightLeaf.bind(this);
+		this.colorItem1 = this.colorItem1.bind(this);
+		this.colorItem2 = this.colorItem2.bind(this);
+		this.colorItem1Active = this.colorItem1Active.bind(this);
+		this.colorItem2Active = this.colorItem2Active.bind(this);
 		this.colorInfoHeader = this.colorInfoHeader.bind(this);
 		this.colorInfoWarn = this.colorInfoWarn.bind(this);
 		this.colorLineNumbers = this.colorLineNumbers.bind(this);
@@ -15,10 +17,10 @@ class ColorScheme {
 	}
 
 	colorHeader(string) { return this.colorHeaderFn(string); }
-	colorBranch(string) { return this.colorBranchFn(string); }
-	colorLeaf(string) { return this.colorLeafFn(string); }
-	highlightBranch(string) { return this.highlightBranchFn(string); }
-	highlightLeaf(string) { return this.highlightLeafFn(string); }
+	colorItem1(string) { return this.colorItem1Fn(string); }
+	colorItem2(string) { return this.colorItem2Fn(string); }
+	colorItem1Active(string) { return this.colorItem1ActiveFn(string); }
+	colorItem2Active(string) { return this.colorItem2ActiveFn(string); }
 	colorInfoHeader(string) { return this.colorInfoHeaderFn(string); }
 	colorInfoWarn(string) { return this.colorInfoWarnFn(string); }
 	colorLineNumbers(string) { return this.colorLineNumbersFn(string); }
@@ -35,10 +37,10 @@ class ColorScheme {
 
 	_setColorSchemeDefault() {
 		this.colorHeaderFn = chalk.bold.green;
-		this.colorBranchFn = chalk.bold.blue;
-		this.colorLeafFn = chalk.white;
-		this.highlightBranchFn = chalk.bgBlue.bold.hex('#000000');
-		this.highlightLeafFn = chalk.bgWhite.bold.hex('#000000');
+		this.colorItem1Fn = chalk.bold.blue;
+		this.colorItem2Fn = chalk.white;
+		this.colorItem1ActiveFn = chalk.bgBlue.bold.hex('#000000');
+		this.colorItem2ActiveFn = chalk.bgWhite.bold.hex('#000000');
 		this.colorInfoHeaderFn = chalk.bgWhite.bold.hex('#000000');
 		this.colorInfoWarnFn = chalk.bgRed.white.bold;
 		this.colorLineNumbersFn = chalk.yellow;
@@ -46,10 +48,10 @@ class ColorScheme {
 
 	_setColorSchemeJungle() {
 		this.colorHeaderFn = chalk.bold.blue;
-		this.colorBranchFn = chalk.bold.green;
-		this.colorLeafFn = chalk.white;
-		this.highlightBranchFn = chalk.bgGreen.bold.hex('#000000');
-		this.highlightLeafFn = chalk.bgWhite.bold.hex('#000000');
+		this.colorItem1Fn = chalk.bold.green;
+		this.colorItem2Fn = chalk.white;
+		this.colorItem1ActiveFn = chalk.bgGreen.bold.hex('#000000');
+		this.colorItem2ActiveFn = chalk.bgWhite.bold.hex('#000000');
 		this.colorInfoHeaderFn = chalk.bgWhite.bold.hex('#000000');
 		this.colorInfoWarnFn = chalk.bgRed.white.bold;
 		this.colorLineNumbersFn = chalk.yellow;
@@ -57,10 +59,10 @@ class ColorScheme {
 
 	_setColorSchemeSnow() {
 		this.colorHeaderFn = chalk.white;
-		this.colorBranchFn = chalk.bold.white;
-		this.colorLeafFn = chalk.white;
-		this.highlightBranchFn = chalk.bgWhite.bold.hex('#000000');
-		this.highlightLeafFn = chalk.bgWhite.hex('#000000');
+		this.colorItem1Fn = chalk.bold.white;
+		this.colorItem2Fn = chalk.white;
+		this.colorItem1ActiveFn = chalk.bgWhite.bold.hex('#000000');
+		this.colorItem2ActiveFn = chalk.bgWhite.hex('#000000');
 		this.colorInfoHeaderFn = chalk.bgWhite.bold.hex('#000000');
 		this.colorInfoWarnFn = chalk.bgRed.white.bold;
 		this.colorLineNumbersFn = chalk.yellow;

@@ -1,9 +1,10 @@
 const Vats = require('./Vats');
-const Node = require('./Node');
-const colorScheme = require('./color-scheme');
+const { BaseUI, TreeUI } = require('./ui');
+const { Tree } = require('./models');
 
 module.exports = {
 	Vats,
-	Node,
-	colorScheme
+	BaseUI,
+	TreeUI,
+	Tree
 };
