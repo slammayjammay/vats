@@ -64,16 +64,16 @@ class ArrayView {
 		return typeof fn === 'function' ? fn(...arguments) : colorScheme.colorItem1Active(string);
 	}
 
-	updateBlocks() {
+	setupAllBlocks(force) {
 		// sync TerminalJumper blocks for this division with the array structure.
 		// if an item already has a block associated with it, skip. otherwise set
 		// the block's content to the item's calculated string.
-		//
-		// TODO: this stuff should inside terminal jumper
+
 		for (const [idx, item] of this.array.entries()) {
 			const existingBlock = this._getBlock(idx);
 
-			if (this._diff[idx] === item && !!existingBlock) {
+			// TODO: this stuff should probably live inside terminal jumper
+			if (!force && this._diff[idx] === item && existingBlock) {
 				continue;
 			}
 
@@ -94,6 +94,24 @@ class ArrayView {
 
 			while (this._getBlock(this.array.length)) {
 				this._getBlock(this.array.length).remove();
+			}
+		}
+	}
+
+	/**
+	 * @param {number|array<number>} indices - The index or array of indices of
+	 * blocks to update.
+	 */
+	updateBlocks(indices) {
+		if (Number.isInteger(indices)) {
+			this.setBlockContentForIdx(indices);
+		} else if (!indices) {
+			for (const [idx] of this.array.entries()) {
+				this.setBlockContentForIdx(idx);
+			}
+		} else {
+			for (const idx of indices) {
+				this.setBlockContentForIdx(indices);
 			}
 		}
 	}
@@ -138,7 +156,9 @@ class ArrayView {
 	}
 
 	getViVisibleIndexBounds() {
-		return [this.div.scrollPosY(), this.array.length - 1 - this.div.scrollPosY()];
+		const start = this.div.scrollPosY();
+		const visibleHeight = Math.min(this.div.height() - 1, this.array.length - 1);
+		return [start, start + visibleHeight];
 	}
 }
 

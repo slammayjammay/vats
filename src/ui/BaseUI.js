@@ -3,10 +3,16 @@ class BaseView {
 		this.vats = null;
 	}
 
+	/**
+	 * @param {Vats} vats - Vats instance.
+	 * @param {object} options - the parsed vats options (also available as
+	 * this.vats.options).
+	 */
 	init(vats, options) {
 		this.vats = vats;
-		this.options = options;
 	}
+
+	update() {}
 
 	render() {}
 
@@ -23,19 +29,11 @@ class BaseView {
 			return;
 		}
 
-		const { cursorRow, scrollPosY } = this.vats.cursorNavigation.handleKeybinding(
+		const [cursorRow, scrollPosY] = this.vats.viCursorNavigation.handleKeybinding(
 			keyAction, count, pageHeight, visibleIndexBounds, currentCursorRow
 		);
 
-		let needsRender = false;
-
-		if (Number.isInteger(cursorRow)) {
-			needsRender = needsRender || this.setCursorRow(cursorRow);
-		}
-		if (Number.isInteger(scrollPosY)) {
-			needsRender = needsRender || this.setScrollPosY(scrollPosY);
-		}
-
+		const needsRender = this.setCursorRowAndScrollPosition(cursorRow, scrollPosY);
 		needsRender && this.render();
 	}
 
@@ -56,16 +54,56 @@ class BaseView {
 
 	setScrollPosY(scrollPosY) {}
 
-	search(string, dir) {
-		const searchableItems = this.getSearchableItems(string);
-		if (!searchableItems) {
-			return;
+	setCursorRowAndScrollPosition(cursorRow, scrollPosY) {
+		let cursorRowChanged, scrollPosChanged;
+
+		if (Number.isInteger(cursorRow)) {
+			cursorRowChanged = this.setCursorRow(cursorRow);
 		}
+		if (scrollPosY !== -1 && Number.isInteger(scrollPosY)) {
+			scrollPosChanged = this.setScrollPosY(scrollPosY);
+		}
+
+		return cursorRowChanged || scrollPosChanged;
 	}
 
-	getSearchableItems(string) {
+	search(query, count) {
+		const searchableItems = this.getSearchableItems(query);
+		if (!searchableItems || searchableItems.length === 0) {
+			return;
+		}
+
+		const startItemIdx = this.getSearchStartIndex();
+		const testFn = (...args) => this.testSearchItem(...args);
+
+		const foundIdx = this.vats.searcher.search(
+			searchableItems, query, { testFn, startItemIdx, count, cache: true }
+		);
+
+		if (foundIdx === -1) {
+			return;
+		}
+
+		const newScrollPosY = this.vats.viCursorNavigation.getScrollPosition(
+			foundIdx,
+			this.getViPageHeight(),
+			this.getViVisibleIndexBounds(),
+			this.getCursorRow()
+		);
+
+		const needsRender = this.setCursorRowAndScrollPosition(foundIdx, newScrollPosY);
+		needsRender && this.render();
+	}
+
+	getSearchableItems(query) {
 		return [];
 	}
+
+	getSearchStartIndex() {
+		return this.getCursorRow();
+	}
+
+	testSearchItem(item, query, idx) {}
 
 	quit() {}
 

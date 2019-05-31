@@ -7,8 +7,10 @@ const pager = require('node-pager');
 const termSize = require('term-size');
 const Event = require('./Event');
 const Keymapper = require('./Keymapper');
-const CursorNavigation = require('./CursorNavigation');
+const ViCursorNavigation = require('./ViCursorNavigation');
+const Searcher = require('./Searcher');
 const CommandMode = require('./CommandMode');
+const BaseUI = require('./ui/BaseUI');
 const TreeUI = require('./ui/TreeUI');
 const colorScheme = require('./color-scheme');
 
@@ -16,7 +18,6 @@ const DEFAULT_OPTIONS = {
 	debug: false,
 	useAlternateScreen: true,
 	leaveTopRowAvailable: true, // not applicable when using alternate screen
-	emitEventsOnNodes: [],
 	colorScheme: 'default',
 	childDivWrapping: {
 		overflowX: 'scroll'
@@ -31,7 +32,9 @@ class Vats extends EventEmitter {
 
 		const defaultUIs = ['tree'];
 
-		if (ui === 'tree') {
+		if (ui instanceof BaseUI) {
+			this.ui = ui;
+		} else if (ui === 'tree') {
 			this.ui = new TreeUI(structure);
 		} else if (typeof ui === 'string' && !defaultUIs.includes(ui)) {
 			throw new Error(`Not a default ui: "${ui}".`);
@@ -39,29 +42,23 @@ class Vats extends EventEmitter {
 
 		this._onKeypress = this._onKeypress.bind(this);
 
-		this._lineNumCached = null;
+		// this._lineNumCached = null;
 		this._stdinListeners = null;
+		this._lastSearchQuery = null;
+		this._lastSearchDir = 1;
 
-		this.keymapper = new Keymapper();
-		this.cursorNavigation = new CursorNavigation();
-		this.commandMode = new CommandMode();
 		this.colorScheme = colorScheme;
+		this.keymapper = new Keymapper();
+		this.commandMode = new CommandMode();
+		this.viCursorNavigation = new ViCursorNavigation();
+		this.searcher = new Searcher();
 
 		this.setColorScheme(this.options.colorScheme);
+		this.keymapper.addKeymap(new Map(Object.entries(require('./keymap.json'))));
 	}
 
 	_parseOptions(options) {
-		options = deepmerge.all([{}, DEFAULT_OPTIONS, options]);
-
-		if ([true, 'all'].includes(options.emitEventsOnNodes)) {
-			options.emitEventsOnNodes = true;
-		} else if (typeof options.emitEventsOnNodes === 'string') {
-			options.emitEventsOnNodes = string.trim().split(/\s+/);
-		} else if (!Array.isArray(options.emitEventsOnNodes)) {
-			options.emitEventsOnNodes = false;
-		}
-
-		return options;
+		return deepmerge.all([{}, DEFAULT_OPTIONS, options]);
 	}
 
 	_onKeypress(char, key) {
@@ -158,9 +155,13 @@ class Vats extends EventEmitter {
 				this.render();
 			}
 		} else if (command === 'search') {
-			const dir = commandPrompt === '?' ? -1 : 1;
-			const remainder = argv._.slice(1).join(' ');
-			this.search(remainder, dir);
+			const count = commandPrompt === '?' ? -1 : 1;
+			const query = argv._.slice(1).join(' ');
+
+			this.search(query, count);
+
+			this._lastSearchQuery = query;
+			this._lastSearchDir = count > 0 ? 1 : -1;
 		} else if (getFyi('command-not-found')) {
 			const cmd = typeof getFyi('command-not-found') === 'string' ?
 				getFyi('command-not-found') : command;
@@ -197,8 +198,12 @@ class Vats extends EventEmitter {
 	}
 
 	_defaultBehaviorForKeybinding({ keyString, keyAction, count, charsRead }) {
-		if (keyAction.slice(0, 3) === 'vi:') {
+		if (keyAction.includes('vi:')) {
 			this.ui.handleViKeybinding(...arguments);
+		} else if (keyAction === 'search-next') {
+			this.search(this._lastSearchQuery, count * this._lastSearchDir);
+		} else if (keyAction === 'search-previous') {
+			this.search(this._lastSearchQuery, -count * this._lastSearchDir);
 		}
 	}
 
@@ -228,7 +233,7 @@ class Vats extends EventEmitter {
 	 * CommandMode#run.
 	 */
 	async enterCommandMode(commandModeOptions) {
-		this.info('', { header: '' });
+		// this.info('', { header: '' });
 
 		this._stdinListeners = process.stdin.listeners('keypress');
 		for (const listener of this._stdinListeners) {
@@ -260,16 +265,12 @@ class Vats extends EventEmitter {
 		return Promise.resolve(output);
 	}
 
-	search(string, dir = 1) {
-		this.ui.search(string, dir);
-	}
+	search(query, count = 1) {
+		if (count === 0) {
+			return;
+		}
 
-	update() {
-		this.ui.update(...arguments);
-	}
-
-	render() {
-		this.ui.render();
+		this.ui.search(query, count);
 	}
 
 	destroy() {
@@ -279,7 +280,7 @@ class Vats extends EventEmitter {
 
 		this.ui.destroy();
 		this.commandMode.destroy();
-		this.cursorNavigation.destroy();
+		this.viCursorNavigation.destroy();
 
 		this.options = this._count = this._lastChar = null;
 		this._stdinListeners = null;
@@ -353,7 +354,7 @@ class Vats extends EventEmitter {
 
 	// 	this._colorNodeCurrentChild('current', this.currentNode);
 
-	// 	this.cursorNavigation.clearSearchCache();
+	// 	this.viCursorNavigation.clearSearchCache();
 	// }
 
 	// render(idOrNode) {

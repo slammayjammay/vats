@@ -31,25 +31,13 @@ class TreeUI extends BaseUI {
 		this.vats.on('keybinding', (...args) => this.onKeybinding(...args));
 		this.vats.on('highlight', (...args) => this.onHighlight(...args));
 
-		// TODO: not this
-		if (this.options.emitEventsOnNodes) {
-			const events = ['cd'];
-			for (const event of events) {
-				this.vats.on(event, data => {
-					if (data.item instanceof Tree) {
-						data.item.emit(event, Object.assign({ node: data.item }, data));
-					}
-				});
-			}
-		}
-
 		this.cd(this.currentNode);
 		this.render();
 	}
 
 	createUI() {
 		this.jumper = new TerminalJumper({
-			debug: this.options.debug
+			debug: this.vats.options.debug
 		});
 
 		const columnWidths = this.getColumnWidths();
@@ -67,7 +55,7 @@ class TreeUI extends BaseUI {
 		this.childAltView = new TextView(this.childArrayView.div);
 
 		this.activeColumnIdx = this.getActiveColumnIdx();
-		this.currentView = this.columns[this.activeColumnIdx];
+		this.activeView = this.columns[this.activeColumnIdx];
 
 		this.setupArrayViewDisplays();
 	}
@@ -89,9 +77,9 @@ class TreeUI extends BaseUI {
 		for (const [idx, columnWidth] of columnWidths.entries()) {
 			options[`column-${idx}`] = {
 				left: idx === 0 ? 0 : `{column-${idx - 1}} + 1`,
-				bottom: 1,
+				bottom: 0,
 				width: columnWidth,
-				height: '100% - 2',
+				height: '100% - 1',
 				overflowX: 'scroll'
 			};
 		}
@@ -110,7 +98,10 @@ class TreeUI extends BaseUI {
 	setupArrayViewDisplays() {
 		for (const view of this.columns) {
 			view.displayFnMap.set('getItemString', (node, idx, divWidth) => {
-				return this.formatListItemString(node, idx, divWidth);
+				const isInsideCurrent = node.parent === this.currentNode;
+				const left = node.toListItemString(idx, divWidth);
+				const right = `${isInsideCurrent && node.getChildren().length || ''}`;
+				return this.formatListItemString(left, right, divWidth);
 			});
 
 			view.displayFnMap.set('colorItemString', (string, node, idx) => {
@@ -125,12 +116,12 @@ class TreeUI extends BaseUI {
 		}
 	}
 
-	formatListItemString(node, idx, divWidth) {
+	formatListItemString(left, right, divWidth) {
+		left = left.split('\n')[0];
+		right = right.split('\n')[0];
+
 		const paddingLeft = 1;
 		const paddingRight = 1;
-
-		const left = node.toListItemString(idx, divWidth);
-		const right = `${node.getChildren().length || ''}`;
 
 		const availableWidth = divWidth - paddingLeft - paddingRight;
 		const rightWidth = stringWidth(right);
@@ -148,12 +139,14 @@ class TreeUI extends BaseUI {
 	}
 
 	render() {
+		// this.jumper.setDirty();
 		process.stdout.write(this.renderString());
 	}
 
 	renderString() {
 		let string = this.jumper.renderString();
-		string += this.currentView.div.jumpToString(null, 0, this.currentView.activeIdx);
+		const cursorRow = this.activeView.activeIdx - this.activeView.div.scrollPosY();
+		string += this.activeView.div.jumpToString(null, 0, cursorRow);
 		string += ansiEscapes.cursorHide;
 
 		return string;
@@ -172,7 +165,7 @@ class TreeUI extends BaseUI {
 			return false;
 		}
 
-		this.currentNode.scrollPosY = this.currentView.div.scrollPosY();
+		this.currentNode.scrollPosY = this.activeView.div.scrollPosY();
 		this.currentNode = node;
 
 		let [i, curNode] = [this.columns.length - 1, node];
@@ -193,17 +186,20 @@ class TreeUI extends BaseUI {
 	_setupArrayView(view, node) {
 		view.setArray(node ? node.getChildren() : []);
 		view.setActiveIdx(node ? node.activeIdx : 0);
-		view.updateBlocks();
+		view.setupAllBlocks(true);
 		view.setScrollPosY(node ? node.scrollPosY : 0);
 	}
 
 	_setupChildAltView(view, node) {
-		const idx = node.parent && node.parent.highlightedIdx;
+		const idx = node.parent && node.parent.activeIdx;
 		view.setText(node.toString(idx, view.div.width()));
 		view.update();
 	}
 
-	update(node) {
+	/**
+	 * If no children indices are given, update everything.
+	 */
+	update(node, childIndices) {
 		let view;
 
 		const startNode = this.currentNode.getHighlightedChild();
@@ -228,6 +224,7 @@ class TreeUI extends BaseUI {
 			this[isArrayView ? '_setupArrayView' : '_setupChildAltView'](view, node);
 		} else {
 			this._setupArrayView(view, node);
+			// childIndices ? view.updateBlocks(childIndices) : this._setupArrayView(view, node);
 		}
 	}
 
@@ -282,11 +279,11 @@ class TreeUI extends BaseUI {
 	}
 
 	getViPageHeight() {
-		return this.currentView.getViPageHeight();
+		return this.activeView.getViPageHeight();
 	}
 
 	getViVisibleIndexBounds() {
-		return this.currentView.getViVisibleIndexBounds();
+		return this.activeView.getViVisibleIndexBounds();
 	}
 
 	getCursorRow() {
@@ -294,8 +291,8 @@ class TreeUI extends BaseUI {
 	}
 
 	setCursorRow(idx) {
-		if (this.currentView.setActiveBlock(idx)) {
-			this.currentNode.activeIdx = this.currentView.activeIdx;
+		if (this.activeView.setActiveBlock(idx)) {
+			this.currentNode.activeIdx = this.activeView.activeIdx;
 			this.vats.emitEvent('highlight', { item: this.currentNode.getHighlightedChild() });
 			return true;
 		}
@@ -304,10 +301,18 @@ class TreeUI extends BaseUI {
 	}
 
 	setScrollPosY(scrollPosY) {
-		const old = this.currentView.div.scrollPosY();
-		this.currentView.setScrollPosY(scrollPosY);
+		const old = this.activeView.div.scrollPosY();
+		this.activeView.setScrollPosY(scrollPosY);
 
 		return scrollPosY !== old;
+	}
+
+	getSearchableItems(query) {
+		return this.currentNode.getChildren();
+	}
+
+	testSearchItem(item, query, idx) {
+		return item.toListItemString().includes(query.toLowerCase());
 	}
 
 	quit() {

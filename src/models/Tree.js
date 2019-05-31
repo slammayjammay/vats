@@ -1,9 +1,5 @@
-const { EventEmitter } = require('events');
-
-class Tree extends EventEmitter {
+class Tree {
 	constructor(data = {}) {
-		super();
-
 		this.data = data;
 		this.parent = null;
 		this.children = [];
@@ -151,8 +147,6 @@ class Tree extends EventEmitter {
 		for (const child of this.children) {
 			child.destroy();
 		}
-
-		this.removeAllListeners();
 
 		this.data = this.parent = this.children = null;
 		this.activeIdx = null;

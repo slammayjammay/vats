@@ -28,11 +28,11 @@
   "z z": "vi:center-align-page-around-cursor",
   "z b": "vi:bottom-align-page-around-cursor",
 
-  "n": "vi:search-next",
-  "N": "vi:search-previous",
+  "n": "search-next",
+  "N": "search-previous",
 
   "f": {
-    "send": "vi:find",
+    "send": "find",
     "read": "readOneChar"
   }
 }

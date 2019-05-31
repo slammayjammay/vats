@@ -1,3 +1,29 @@
+// when creating a keymap, prepending "shift+" only makes sense when these
+// special keys are pressed. When normal keys are pressed, just add that
+// character instead. For example, "N" is valid whereas "shift+n" is not.
+const SHIFTABLE_KEYS = [
+	'escape', 'return', 'tab', 'backspace', 'up', 'down', 'left', 'right'
+];
+
+/**
+ * Node's char/key to represent a keypress is annoying. Instead, convert
+ * char/key to one string.
+ *
+ * Keys are the strings present in `key.name`, values are what will be used in
+ * the final keypress string. If `char` is empty but `key.name` is present
+ * (e.g. "escape"), and `key.name` is not present in this object, then
+ * `key.name` will be used in the keypress string.
+ *
+ * See #getKeypressString
+ */
+const NODE_KEY_CONVERSION = {
+	up: 'UP_ARROW',
+	down: 'DOWN_ARROW',
+	left: 'LEFT_ARROW',
+	right: 'RIGHT_ARROW',
+	return: 'enter'
+};
+
 /**
  * See `keymap.json` for list of all keymaps.
  *
@@ -12,14 +38,24 @@ class Keymapper {
 		this._numReads = 0;
 
 		this.readFunctionMap = new Map();
-		this.keymap = new Map(Object.entries(require('./keymap.json')));
+		this.keymap = new Map();
 
-		this._inputTree = this._constructInputTree(this.keymap);
-		this._inputNode = this._inputTree;
+		this._inputTree = null;
+		this._inputNode = null;
 
 		this._isReading = false;
 
 		this.readFunctionMap.set('readOneChar', this.readOneChar);
+	}
+
+	/**
+	 * @param {map} map - The keymap to add.
+	 */
+	addKeymap(map) {
+		this.keymap = new Map([...this.keymap, ...map]);
+
+		this._inputTree = this._constructInputTree(this.keymap);
+		this._inputNode = this._inputTree;
 	}
 
 	_constructInputTree(keymap) {
@@ -108,6 +144,7 @@ class Keymapper {
 
 		const keybindingObject = this.getKeybindingObject(this._input, charsRead);
 		this._resetInput();
+		this._isReading = false;
 		return keybindingObject;
 	}
 
@@ -132,23 +169,31 @@ class Keymapper {
 		return false;
 	}
 
-	/**
-	 * Node's char/key to represent a keypress is annoying.
-	 * Convert to a less annoying representation of a keypress.
-	 */
 	getKeypressString({ char, key }) {
-		let keyString = char ? char : '';
+		let keyString;
 
-		if (key.name === 'up') keyString = 'UP_ARROW';
-		if (key.name === 'down') keyString = 'DOWN_ARROW';
-		if (key.name === 'left') keyString = 'LEFT_ARROW';
-		if (key.name === 'right') keyString = 'RIGHT_ARROW';
+		if (key.ctrl || key.meta) {
+			keyString = key.name;
+		} else if (char === key.sequence) {
+			keyString = char;
+		} else if (NODE_KEY_CONVERSION[key.name]) {
+			keyString = NODE_KEY_CONVERSION[key.name];
+		} else {
+			keyString = key.name;
+		}
 
 		// order matters!
 		if (key.ctrl) keyString = `ctrl+${keyString}`;
 		if (key.option) keyString = `option+${keyString}`;
-		if (key.meta) keyString = `meta+${keyString}`;
-		// if (key.shift) keyString = `shift+${keyString}`;
+		if (key.meta && keyString !== 'escape') keyString = `meta+${keyString}`;
+
+		// should not add shift when normal characters are pressed (e.g. "N").
+		// also, node sometimes does not set `key.shift` as true -- e.g. on
+		// shift+enter, `key.shift` is false. That is node's problem -- enter
+		// is still a "shiftable" key in this context.
+		if (key.shift && SHIFTABLE_KEYS.includes(key.name)) {
+			keyString = `shift+${keyString}`;
+		}
 
 		return keyString;
 	}
@@ -177,6 +222,9 @@ class Keymapper {
 
 		return { keyString, count };
 	}
+
+	// TODO
+	destroy() {}
 }
 
 module.exports = Keymapper;
