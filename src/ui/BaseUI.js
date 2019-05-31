@@ -10,11 +10,19 @@ class BaseView {
 	 */
 	init(vats, options) {
 		this.vats = vats;
+
+		this.vats.on('pager:exit', (...args) => this.onPagerExit(...args));
 	}
 
 	update() {}
 
 	render() {}
+
+	onPagerExit() {
+		if (this.vats.options.useAlternateScreen) {
+			this.render();
+		}
+	}
 
 	handleViKeybinding({ keyString, keyAction, count, charsRead }) {
 		const pageHeight = this.getViPageHeight();

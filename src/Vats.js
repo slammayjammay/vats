@@ -102,7 +102,7 @@ class Vats extends EventEmitter {
 	 * All events are emitted before the next render occurs. Hmm...
 	 * TODO: emit with context data
 	 */
-	emitEvent(eventName, data) {
+	emitEvent(eventName, data = {}) {
 		const event = new Event(eventName, Object.assign({ vats: this }, data));
 
 		this.emit(eventName, event);
@@ -165,11 +165,12 @@ class Vats extends EventEmitter {
 		} else if (getFyi('command-not-found')) {
 			const cmd = typeof getFyi('command-not-found') === 'string' ?
 				getFyi('command-not-found') : command;
-			this.info(`Command not found: ${cmd}`, { warn: true });
+			this.emitEvent('command-not-found', { command: cmd });
 		}
 	}
 
 	_defaultBehaviorForKeypress({ char, key }) {
+		// ctrl+c
 		if (key.sequence === '\u0003') {
 			return this.quit();
 		}
@@ -207,7 +208,10 @@ class Vats extends EventEmitter {
 		}
 	}
 
+	// TODO: rename #logToPager
 	printToPager(string) {
+		this.emitEvent('pager:enter');
+
 		if (this.options.useAlternateScreen) {
 			spawnSync('tput rmcup', [], { shell: true, stdio: 'inherit' });
 		}
@@ -217,7 +221,7 @@ class Vats extends EventEmitter {
 				spawnSync('tput smcup', [], { shell: true, stdio: 'inherit' });
 			}
 
-			this.ui.render();
+			this.emitEvent('pager:exit');
 		});
 	}
 
@@ -233,7 +237,7 @@ class Vats extends EventEmitter {
 	 * CommandMode#run.
 	 */
 	async enterCommandMode(commandModeOptions) {
-		// this.info('', { header: '' });
+		this.emitEvent('command-mode:enter');
 
 		this._stdinListeners = process.stdin.listeners('keypress');
 		for (const listener of this._stdinListeners) {
@@ -261,6 +265,8 @@ class Vats extends EventEmitter {
 			ansiEscapes.cursorHide +
 			ansiEscapes.cursorRestorePosition
 		);
+
+		this.emitEvent('command-mode:exit');
 
 		return Promise.resolve(output);
 	}
@@ -365,64 +371,6 @@ class Vats extends EventEmitter {
 	// 	}
 
 	// 	process.stdout.write(this._render() + ansiEscapes.cursorHide);
-	// }
-
-	// setHeader(string) {
-	// 	const block = this.jumper.getBlock('header.header');
-	// 	block.content(colorScheme.colorHeader(string));
-	// }
-
-	// info(string, options) {
-	// 	if (string.split('\n').length >= this.jumper.getAvailableHeight()) {
-	// 		this.printToPager(string);
-	// 	} else {
-	// 		this.setInfo(string, options);
-	// 		this.render();
-	// 	}
-	// }
-
-	// warn(string) {
-	// 	this.info(string, { warn: true });
-	// }
-
-	// setInfo(string = '', options = {}) {
-	// 	const hasBlock = this.jumper.hasBlock('info.info');
-
-	// 	if (options.warn) {
-	// 		string = colorScheme.colorInfoWarn(string);
-	// 	}
-
-	// 	if (options.header !== undefined) {
-	// 		this.setInfoHeader(options.header);
-	// 	}
-
-	// 	const div = this.jumper.getDivision('info');
-	// 	const oldDivHeight = div.height();
-
-	// 	const block = this.jumper[hasBlock ? 'getBlock' : 'addBlock']('info.info', '');
-	// 	string === '' ? block.remove() : block.content(string);
-
-	// 	if (div.height() !== oldDivHeight) {
-	// 		for (const divisionId of this._getAffectedDivisionsFor('all')) {
-	// 			this.jumper.setNeedsRender(divisionId);
-	// 		}
-	// 	}
-	// }
-
-	// setInfoHeader(string) {
-	// 	const hasBlock = this.jumper.hasBlock('info.header');
-
-	// 	if (!string) {
-	// 		hasBlock && this.jumper.removeBlock('info.header');
-	// 		return;
-	// 	}
-
-	// 	const block = this.jumper[hasBlock ? 'getBlock' : 'addBlock']('info.header', '', 0);
-
-	// 	const div = this.jumper.getDivision('info');
-	// 	string += (new Array(div.contentWidth() - stringWidth(string))).join(' ');
-
-	// 	block.content(colorScheme.colorInfoHeader(string));
 	// }
 
 	/**

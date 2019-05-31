@@ -1,11 +1,11 @@
-class PreviewView {
-	constructor(div, text = '') {
+class TextView {
+	constructor(div) {
 		if (!div) {
 			throw new Error(`Need a TerminalJumper Division.`);
 		}
 
 		this.div = div;
-		this.text = text;
+		this.text = '';
 
 		this._blockId = 'text-view-block';
 	}
@@ -25,4 +25,4 @@ class PreviewView {
 	}
 }
 
-module.exports = PreviewView;
+module.exports = TextView;

@@ -3,10 +3,9 @@ const stringWidth = require('string-width');
 const cliTruncate = require('cli-truncate');
 const TerminalJumper = require('../../../terminal-jumper');
 const BaseUI = require('./BaseUI');
-// const HeaderView = require('./subviews/HeaderView');
 const ArrayView = require('./subviews/ArrayView');
 const TextView = require('./subviews/TextView');
-// const InfoView = require('./subviews/InfoView');
+const InfoView = require('./subviews/InfoView');
 const Tree = require('../models/Tree');
 
 class TreeUI extends BaseUI {
@@ -28,7 +27,10 @@ class TreeUI extends BaseUI {
 		this.createUI();
 		this.addCustomKeymaps();
 
+		this.vats.on('command-mode:enter', (...args) => this.onCommandModeEnter(...args));
+		this.vats.on('command-not-found', (...args) => this.onCommandNotFound(...args));
 		this.vats.on('keybinding', (...args) => this.onKeybinding(...args));
+		this.vats.on('cd', (...args) => this.onCD(...args));
 		this.vats.on('highlight', (...args) => this.onHighlight(...args));
 
 		this.cd(this.currentNode);
@@ -40,9 +42,10 @@ class TreeUI extends BaseUI {
 			debug: this.vats.options.debug
 		});
 
+		// setup columns
 		const columnWidths = this.getColumnWidths();
 
-		for (const [id, options] of Object.entries(this.getDivisionOptions(columnWidths))) {
+		for (const [id, options] of Object.entries(this.getJumperDivisions(columnWidths))) {
 			options.id = id;
 			this.jumper.addDivision(options);
 		}
@@ -58,6 +61,16 @@ class TreeUI extends BaseUI {
 		this.activeView = this.columns[this.activeColumnIdx];
 
 		this.setupArrayViewDisplays();
+
+		// setup header
+		if (this.jumper.hasDivision('header')) {
+			this.headerView = new TextView(this.jumper.getDivision('header'));
+		}
+
+		// setup info
+		if (this.jumper.hasDivision('info')) {
+			this.infoView = new InfoView(this.jumper.getDivision('info'));
+		}
 	}
 
 	getActiveColumnIdx() {
@@ -68,10 +81,10 @@ class TreeUI extends BaseUI {
 		return ['15%', '40% - 1', '45% - 1'];
 	}
 
-	getDivisionOptions(columnWidths) {
+	getJumperDivisions(columnWidths) {
 		const options = {
-			// header: { top: 0, left: 0, width: '100%', height: 1, overflowX: 'scroll' },
-			// info: { bottom: 0, left: 0, width: '100%', renderOrder: 2 }
+			header: { top: 0, left: 0, width: '100%', height: 1, overflowX: 'scroll' },
+			info: { bottom: 0, left: 0, width: '100%', renderOrder: 2 }
 		};
 
 		for (const [idx, columnWidth] of columnWidths.entries()) {
@@ -138,8 +151,12 @@ class TreeUI extends BaseUI {
 		return string;
 	}
 
+	onPagerExit() {
+		this.jumper.setDirty();
+		super.onPagerExit(...arguments);
+	}
+
 	render() {
-		// this.jumper.setDirty();
 		process.stdout.write(this.renderString());
 	}
 
@@ -150,6 +167,38 @@ class TreeUI extends BaseUI {
 		string += ansiEscapes.cursorHide;
 
 		return string;
+	}
+
+	setHeader(headerString) {
+		this.headerView.setText(this.vats.colorScheme.colorHeader(headerString));
+		this.headerView.update();
+	}
+
+	info(string, options = {}) {
+		if (string.split('\n').length >= this.jumper.getAvailableHeight()) {
+			this.vats.printToPager(string);
+			return;
+		}
+
+		const oldHeight = this.infoView.div.height();
+
+		this.infoView.setInfo(string, options);
+
+		if (this.infoView.div.height() > oldHeight) {
+			for (const view of this.columns) {
+				this.jumper.setNeedsRender(view.div);
+			}
+		}
+
+		options.render && this.render();
+	}
+
+	warn(string) {
+		this.info(string, { warn: true });
+	}
+
+	clearInfo(options = {}) {
+		this.info('', Object.assign({}, options, { header: '' }));
 	}
 
 	/**
@@ -228,6 +277,14 @@ class TreeUI extends BaseUI {
 		}
 	}
 
+	onCommandModeEnter() {
+		this.clearInfo({ render: true });
+	}
+
+	onCommandNotFound({ command }) {
+		this.info(`Command not found: ${command}`, { warn: true, render: true });
+	}
+
 	onKeybinding({ keyString, keyAction, count, charsRead, preventDefault }) {
 		const blacklist = ['vi:cursor-left', 'vi:cursor-right'];
 		if (blacklist.includes(keyAction)) {
@@ -236,13 +293,15 @@ class TreeUI extends BaseUI {
 
 		// TODO: cd does not take into account "count"
 
+		let needsRender = false;
+
 		if (keyAction === 'vi:cursor-left') {
-			this.cd(this.currentNode.parent) && this.render();
+			needsRender = this.cd(this.currentNode.parent);
 		} else if (['vi:cursor-right', 'enter'].includes(keyAction)) {
 			const child = this.currentNode.getHighlightedChild();
 
 			if (child.hasChildren()) {
-				this.cd(child) && this.render();
+				needsRender = this.cd(child);
 			} else {
 				this.vats.emitEvent('select', { item: child });
 			}
@@ -250,8 +309,22 @@ class TreeUI extends BaseUI {
 			const dir = keyAction.includes('up') ? -1 : 1;
 			const isFast = keyAction.includes('fast');
 			this.scrollChildView(dir, isFast);
-			this.render();
+			needsRender = true;
 		}
+
+		this.clearInfo();
+	}
+
+	onCD({ item }) {
+		let headerString = '';
+		let currentNode = this.currentNode;
+
+		while (currentNode) {
+			headerString = `${currentNode.name()}/${headerString}`;
+			currentNode = currentNode.parent;
+		}
+
+		this.setHeader(headerString);
 	}
 
 	onHighlight({ item }) {
