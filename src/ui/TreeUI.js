@@ -28,7 +28,6 @@ class TreeUI extends BaseUI {
 		this.createUI();
 		this.addCustomKeymaps();
 
-
 		this.vats.on('command', (...args) => this.onCommand(...args));
 		this.vats.on('command-mode:enter', (...args) => this.onCommandModeEnter(...args));
 		this.vats.on('command-not-found', (...args) => this.onCommandNotFound(...args));
@@ -283,6 +282,10 @@ class TreeUI extends BaseUI {
 
 	clearInfo(options = {}) {
 		this.info('', Object.assign({}, options, { header: '' }));
+
+		for (const view of this.columns) {
+			this.jumper.setNeedsRender(view.div);
+		}
 	}
 
 	/**
