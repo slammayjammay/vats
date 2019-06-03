@@ -7,6 +7,7 @@ const ArrayView = require('./subviews/ArrayView');
 const TextView = require('./subviews/TextView');
 const InfoView = require('./subviews/InfoView');
 const Tree = require('../models/Tree');
+const colorScheme = require('../color-scheme');
 
 class TreeUI extends BaseUI {
 	constructor(tree) {
@@ -27,6 +28,8 @@ class TreeUI extends BaseUI {
 		this.createUI();
 		this.addCustomKeymaps();
 
+
+		this.vats.on('command', (...args) => this.onCommand(...args));
 		this.vats.on('command-mode:enter', (...args) => this.onCommandModeEnter(...args));
 		this.vats.on('command-not-found', (...args) => this.onCommandNotFound(...args));
 		this.vats.on('keybinding', (...args) => this.onKeybinding(...args));
@@ -63,14 +66,14 @@ class TreeUI extends BaseUI {
 		this.setupArrayViewDisplays();
 
 		// setup header
-		if (this.jumper.hasDivision('header')) {
-			this.headerView = new TextView(this.jumper.getDivision('header'));
-		}
+		this.headerView = new TextView(this.jumper.getDivision('header'));
 
 		// setup info
-		if (this.jumper.hasDivision('info')) {
-			this.infoView = new InfoView(this.jumper.getDivision('info'));
-		}
+		this.infoView = new InfoView(this.jumper.getDivision('info'));
+
+		// setup line numbers
+		this.linesView = this.createLinesView();
+		this.showLineNumbers(true);
 	}
 
 	getActiveColumnIdx() {
@@ -98,6 +101,87 @@ class TreeUI extends BaseUI {
 		}
 
 		return options;
+	}
+
+	createLinesView() {
+		const linesDiv = this.createLinesDiv(this.activeColumnIdx);
+		const view = new ArrayView(linesDiv);
+		view.disable(); // TODO: something less hacky here
+
+		// padding
+		view.displayFnMap.set('getItemString', (item, idx, divWidth) => {
+			const availableWidth = divWidth - 2; // padding around div
+			const lineNum = item.toString();
+			const isCursorRow = idx === this.getCursorRow();
+			const strWidth = ~~(Math.log10(lineNum, 10)) + 1;
+			const padding = (new Array(availableWidth - strWidth + 1)).join(' ');
+			const str = isCursorRow ? `${lineNum}${padding}` : `${padding}${lineNum}`;
+			return ` ${str} `;
+		});
+
+		// color
+		view.displayFnMap.set('colorItemString', (string, item, idx) => {
+			return colorScheme.colorLineNumbers(string);
+		});
+
+		return view;
+	}
+
+	createLinesDiv(activeColumnIdx) {
+		const linesWidth = '5';
+
+		return this.jumper.addDivision({
+			id: 'lines',
+			top: 'header',
+			left: `column-${activeColumnIdx - 1}`,
+			width: linesWidth,
+			overflowX: 'scroll',
+			renderOrder: 1
+		});
+	}
+
+	/**
+	 * @param {boolean} bool - whether to show line numbers.
+	 * @return {boolean} - whether the line numbers were toggled.
+	 */
+	showLineNumbers(bool) {
+		const activeOptions = this.columns[this.activeColumnIdx].div.options;
+		const childOptions = this.columns[this.columns.length - 1].div.options;
+		const linesOptions = this.linesView.div.options;
+
+		let hasChanged = false;
+
+		if (bool && !this.linesView.isEnabled) {
+			this.linesView.enable();
+			activeOptions.left = 'lines';
+			childOptions.width = `${childOptions.width} - ${linesOptions.width}`;
+			hasChanged = true;
+		} else if (!bool && this.linesView.isEnabled) {
+			this.linesView.disable();
+			const columnWidths = this.getColumnWidths();
+			childOptions.width = columnWidths[columnWidths.length - 1];
+			const leftId = this.columns[this.activeColumnIdx - 1].div.options.id;
+			activeOptions.left = `{${leftId}} + 1`;
+			hasChanged = true;
+		}
+
+		return hasChanged;
+	}
+
+	_syncLineNumbersWithActiveColumn() {
+		if (!this.linesView.isEnabled) {
+			return;
+		}
+
+		const numBlocks = this.activeView.div.blockIds.length;
+		const cursorRow = this.getCursorRow();
+
+		const lineNumbers = (new Array(numBlocks)).fill(null).map((_, idx) => {
+			return Math.abs(idx - cursorRow);
+		});
+
+		this.linesView.setArray(lineNumbers);
+		this.linesView.setupAllBlocks(true);
 	}
 
 	addCustomKeymaps() {
@@ -218,7 +302,7 @@ class TreeUI extends BaseUI {
 		this.currentNode = node;
 
 		let [i, curNode] = [this.columns.length - 1, node];
-		i -= 1; // ignore child view -- will be populated on highlight
+		i -= 1; // ignore child view -- will be setup on highlight
 		while (i >= 0) {
 			const view = this.columns[i];
 			this._setupArrayView(view, curNode);
@@ -237,6 +321,21 @@ class TreeUI extends BaseUI {
 		view.setActiveIdx(node ? node.activeIdx : 0);
 		view.setupAllBlocks(true);
 		view.setScrollPosY(node ? node.scrollPosY : 0);
+	}
+
+	_setupChildView(childNode) {
+		const hasChildren = childNode.hasChildren();
+		const isArrayView = this.currentChildView === this.childArrayView;
+		const needsSwap = hasChildren !== isArrayView;
+
+		needsSwap && this.currentChildView.div.reset();
+		this.currentChildView = hasChildren ? this.childArrayView : this.childAltView;
+
+		if (hasChildren) {
+			this._setupArrayView(this.currentChildView, childNode);
+		} else {
+			this._setupChildAltView(this.currentChildView, childNode);
+		}
 	}
 
 	_setupChildAltView(view, node) {
@@ -285,6 +384,27 @@ class TreeUI extends BaseUI {
 		this.info(`Command not found: ${command}`, { warn: true, render: true });
 	}
 
+	onCommand({ argv }) {
+		const command = argv._[0];
+
+		if (command === 'set') {
+			let bool = null;
+
+			if (['linenumbers', 'line-numbers'].includes(argv._[1])) {
+				bool = true;
+			} else if (['nolinenumbers', 'no-line-numbers'].includes(argv._[1])) {
+				bool = false;
+			} else if (['linenumbers!', 'line-numbers!'].includes(argv._[1])) {
+				bool = !this.linesView.isEnabled;
+			}
+
+			if (bool !== null && this.showLineNumbers(bool)) {
+				this._syncLineNumbersWithActiveColumn();
+				this.render();
+			}
+		}
+	}
+
 	onKeybinding({ keyString, keyAction, count, charsRead, preventDefault }) {
 		const blacklist = ['vi:cursor-left', 'vi:cursor-right'];
 		if (blacklist.includes(keyAction)) {
@@ -328,21 +448,8 @@ class TreeUI extends BaseUI {
 	}
 
 	onHighlight({ item }) {
-		const childNode = item;
-
-		const hasChildren = childNode.hasChildren();
-		const isArrayView = this.currentChildView === this.childArrayView;
-		const needsSwap = hasChildren !== isArrayView;
-
-		needsSwap && this.currentChildView.div.reset();
-		this.currentChildView = hasChildren ? this.childArrayView : this.childAltView;
-
-		if (hasChildren) {
-			this._setupArrayView(this.currentChildView, childNode);
-		} else {
-			this._setupChildAltView(this.currentChildView, childNode);
-		}
-
+		this._setupChildView(item);
+		this._syncLineNumbersWithActiveColumn();
 		this.render();
 	}
 

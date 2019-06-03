@@ -1,12 +1,9 @@
+const BaseSubview = require('./BaseSubview');
 const colorScheme = require('../../color-scheme');
 
-class ArrayView {
+class ArrayView extends BaseSubview {
 	constructor(div, array = []) {
-		if (!div) {
-			throw new Error(`Need a TerminalJumper Division.`);
-		}
-
-		this.div = div;
+		super(div);
 		this.array = array;
 
 		this._diff = [];
@@ -21,6 +18,10 @@ class ArrayView {
 
 	setArray(array) {
 		this.array = array;
+	}
+
+	getScrollPosY() {
+		return this.div.scrollPosY();
 	}
 
 	setScrollPosY(scrollPosY) {
@@ -73,9 +74,9 @@ class ArrayView {
 			const existingBlock = this._getBlock(idx);
 
 			// TODO: this stuff should probably live inside terminal jumper
-			if (!force && this._diff[idx] === item && existingBlock) {
-				continue;
-			}
+			// if (!force && this._diff[idx] === item && existingBlock) {
+			// 	continue; // TODO: hang on, why is this necessary?
+			// }
 
 			this._diff[idx] = item;
 

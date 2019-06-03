@@ -1,15 +1,8 @@
 const stringWidth = require('string-width');
+const BaseSubview = require('./BaseSubview');
 const colorScheme = require('../../color-scheme');
 
-class InfoView {
-	constructor(div) {
-		if (!div) {
-			throw new Error(`Need a TerminalJumper Division.`);
-		}
-
-		this.div = div;
-	}
-
+class InfoView extends BaseSubview {
 	setInfo(string = '', options = {}) {
 		if (options.warn) {
 			string = colorScheme.colorInfoWarn(string);

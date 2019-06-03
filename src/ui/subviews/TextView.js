@@ -1,12 +1,10 @@
-class TextView {
+const BaseSubview = require('./BaseSubview');
+
+class TextView extends BaseSubview {
 	constructor(div) {
-		if (!div) {
-			throw new Error(`Need a TerminalJumper Division.`);
-		}
+		super(div);
 
-		this.div = div;
 		this.text = '';
-
 		this._blockId = 'text-view-block';
 	}
 

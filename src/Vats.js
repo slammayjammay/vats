@@ -139,21 +139,6 @@ class Vats extends EventEmitter {
 		} else if (['redraw', 'render'].includes(command)) {
 			this.update('all');
 			this.render();
-		} else if (command === 'set') {
-			let bool;
-
-			if (['linenumbers', 'line-numbers'].includes(argv._[1])) {
-				bool = true;
-			} else if (['nolinenumbers', 'no-line-numbers'].includes(argv._[1])) {
-				bool = false;
-			} else if (['linenumbers!', 'line-numbers!'].includes(argv._[1])) {
-				bool = !this.jumper.hasDivision('lines');
-			}
-
-			if (this.showLineNumbers(bool)) {
-				this._syncLineNumbersWithCurrent();
-				this.render();
-			}
 		} else if (command === 'search') {
 			const count = commandPrompt === '?' ? -1 : 1;
 			const query = argv._.slice(1).join(' ');
@@ -308,38 +293,6 @@ class Vats extends EventEmitter {
 		this.printToPager(e.stack);
 	}
 
-	/**
-	 * @param {boolean} bool - whether to show line numbers.
-	 * @return {boolean} - whether the line numbers were toggled.
-	 */
-	// showLineNumbers(bool) {
-	// 	const hasDivision = this.jumper.hasDivision('lines');
-	// 	const currentOptions = this.jumper.getDivision('current').options;
-	// 	const childOptions = this.jumper.getDivision('child').options;
-
-	// 	let hasChanged = false;
-
-	// 	if (bool && !hasDivision) {
-	// 		// need to add lines division
-	// 		this.jumper.addDivision({ id: 'lines', top: 'header', left: 'parent', width: DIMENSIONS.linesWidth, overflowX: 'scroll', renderOrder: 1 });
-	// 		currentOptions.left = 'lines';
-	// 		childOptions.width = `${DIMENSIONS.childWidth} - ${DIMENSIONS.linesWidth}`;
-	// 		hasChanged = true;
-	// 	} else if (!bool && hasDivision) {
-	// 		// need to remove lines division
-	// 		this.jumper.removeDivision('lines');
-	// 		currentOptions.left = 'parent';
-	// 		childOptions.width = DIMENSIONS.childWidth;
-	// 		hasChanged = true;
-	// 	}
-
-	// 	if (hasChanged) {
-	// 		this._lineNumCached = null;
-	// 	}
-
-	// 	return hasChanged;
-	// }
-
 	// update(idOrNode) {
 	// 	const divisionIds = this._getAffectedDivisionsFor(idOrNode);
 
@@ -442,52 +395,6 @@ class Vats extends EventEmitter {
 	// 	return null;
 	// }
 
-	// _syncLineNumbersWithCurrent() {
-	// 	if (!this.jumper.hasDivision('lines')) {
-	// 		return;
-	// 	}
-
-	// 	const div = this.jumper.getDivision('lines');
-	// 	const divWidth = div.width();
-	// 	const curScrollPos = this.jumper.getDivision('current').scrollPosY();
-	// 	const rowIdx = this.currentNode.highlightedIdx - curScrollPos;
-
-	// 	const getLineNumString = (lineNum, isPaddingOnLeft) => {
-	// 		const width = ~~(Math.log10(lineNum, 10)) + 1;
-	// 		const padding = (new Array(divWidth - width + 1)).join(' ');
-	// 		const str = isPaddingOnLeft ? `${padding}${lineNum}` : `${lineNum}${padding}`;
-	// 		return colorScheme.colorLineNumbers(str);
-	// 	};
-
-	// 	if (rowIdx === this._lineNumCached) {
-	// 		const curBlock = this._getBlock('lines', rowIdx);
-	// 		if (rowIdx + curScrollPos !== parseInt(curBlock.escapedText)) {
-	// 			curBlock.content(getLineNumString(rowIdx + curScrollPos, false));
-	// 		}
-	// 		return;
-	// 	}
-
-	// 	const { length } = this.getVisibleChildrenFor('current');
-
-	// 	for (let i = 0; i < length; i++) {
-	// 		let str;
-
-	// 		if (i === rowIdx) {
-	// 			str = getLineNumString(i + curScrollPos, false);
-	// 		} else {
-	// 			str = getLineNumString(Math.abs(i - rowIdx), true);
-	// 		}
-
-	// 		const block = this._getBlock('lines', i);
-	// 		block ?  block.content(str) : div.addBlock(str);
-	// 	}
-
-	// 	while (this._getBlock('lines', length)) {
-	// 		this._getBlock('lines', length).remove();
-	// 	}
-
-	// 	this._lineNumCached = rowIdx;
-	// }
 }
 
 module.exports = Vats;
