@@ -59,7 +59,7 @@ class CommandMode {
 		// exit
 		if (isBackspaceOnEmpty || key.name === 'escape') {
 			this.quit();
-			this._resolve && this._resolve(null);
+			this.resolve(null);
 			return;
 		}
 
@@ -72,7 +72,7 @@ class CommandMode {
 		const commandData = this._getCommandData(this.rl.line, this.rl._prompt);
 
 		this.quit();
-		this._resolve && this._resolve(commandData);
+		this.resolve(commandData);
 	}
 
 	_getCommandData(line, prompt) {
@@ -93,6 +93,15 @@ class CommandMode {
 		this._stdinListeners = null;
 
 		this.rl.close();
+	}
+
+	// TODO: is this even necessary
+	resolve(val) {
+		if (this._resolve) {
+			const resolve = this._resolve;
+			this._resolve = null;
+			resolve(val);
+		}
 	}
 
 	destroy() {
