@@ -111,7 +111,7 @@ class TreeUI extends BaseUI {
 		view.displayFnMap.set('getItemString', (item, idx, divWidth) => {
 			const availableWidth = divWidth - 2; // padding around div
 			const lineNum = item.toString();
-			const isCursorRow = idx === this.getCursorRow();
+			const isCursorRow = idx === this.getCursorRow() - this.activeView.getScrollPosY();
 			const strWidth = ~~(Math.log10(lineNum, 10)) + 1;
 			const padding = (new Array(availableWidth - strWidth + 1)).join(' ');
 			const str = isCursorRow ? `${lineNum}${padding}` : `${padding}${lineNum}`;
@@ -172,11 +172,13 @@ class TreeUI extends BaseUI {
 			return;
 		}
 
-		const numBlocks = this.activeView.div.blockIds.length;
+		const [start, end] = this.activeView.getViVisibleIndexBounds();
+		const scrollPosY = this.activeView.getScrollPosY();
+		const numBlocks = end - start;
 		const cursorRow = this.getCursorRow();
 
-		const lineNumbers = (new Array(numBlocks)).fill(null).map((_, idx) => {
-			return Math.abs(idx - cursorRow);
+		const lineNumbers = (new Array(numBlocks + 1)).fill(null).map((_, idx) => {
+			return Math.abs(idx - cursorRow + scrollPosY);
 		});
 
 		this.linesView.setArray(lineNumbers);
@@ -473,10 +475,27 @@ class TreeUI extends BaseUI {
 		return this.currentNode.activeIdx;
 	}
 
+	// TODO: this is not dry...
+	setCursorRowAndScrollPosition(cursorRow, scrollPosY) {
+		let cursorRowChanged, scrollPosChanged;
+
+		if (Number.isInteger(cursorRow)) {
+			cursorRowChanged = this.setCursorRow(cursorRow);
+		}
+		if (scrollPosY !== -1 && Number.isInteger(scrollPosY)) {
+			scrollPosChanged = this.setScrollPosY(scrollPosY);
+		}
+
+		if (cursorRowChanged) {
+			this.vats.emitEvent('highlight', { item: this.currentNode.getHighlightedChild() });
+		}
+
+		return cursorRowChanged || scrollPosChanged;
+	}
+
 	setCursorRow(idx) {
 		if (this.activeView.setActiveBlock(idx)) {
 			this.currentNode.activeIdx = this.activeView.activeIdx;
-			this.vats.emitEvent('highlight', { item: this.currentNode.getHighlightedChild() });
 			return true;
 		}
 
