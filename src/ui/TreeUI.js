@@ -269,7 +269,7 @@ class TreeUI extends BaseUI {
 
 		this.infoView.setInfo(string, options);
 
-		if (this.infoView.div.height() > oldHeight) {
+		if (this.infoView.div.height() < oldHeight) {
 			for (const view of this.columns) {
 				this.jumper.setNeedsRender(view.div);
 			}
@@ -283,11 +283,17 @@ class TreeUI extends BaseUI {
 	}
 
 	clearInfo(options = {}) {
-		this.info('', Object.assign({}, options, { header: '' }));
+		const infoChanged = this.infoView.clearInfo();
 
-		for (const view of this.columns) {
-			this.jumper.setNeedsRender(view.div);
+		if (infoChanged) {
+			for (const view of this.columns) {
+				this.jumper.setNeedsRender(view.div);
+			}
 		}
+
+		options.render && this.render();
+
+		return infoChanged;
 	}
 
 	/**
@@ -437,7 +443,8 @@ class TreeUI extends BaseUI {
 			needsRender = true;
 		}
 
-		this.clearInfo();
+		const infoNeedsRender = this.clearInfo();
+		(infoNeedsRender || needsRender) && this.render();
 	}
 
 	onCD({ item }) {
@@ -455,7 +462,6 @@ class TreeUI extends BaseUI {
 	onHighlight({ item }) {
 		this._setupChildView(item);
 		this._syncLineNumbersWithActiveColumn();
-		this.render();
 	}
 
 	scrollChildView(dir, isFast) {

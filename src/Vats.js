@@ -42,7 +42,6 @@ class Vats extends EventEmitter {
 
 		this._onKeypress = this._onKeypress.bind(this);
 
-		// this._lineNumCached = null;
 		this._stdinListeners = null;
 		this._lastSearchQuery = null;
 		this._lastSearchDir = 1;

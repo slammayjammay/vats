@@ -33,6 +33,18 @@ class InfoView extends BaseSubview {
 
 		block.content(colorScheme.colorInfoHeader(string));
 	}
+
+	clearInfo() {
+		let hasChanged = false;
+
+		for (const id of ['header', 'info']) {
+			const hasBlock = this.div.hasBlock(id);
+			hasChanged = hasChanged || hasBlock;
+			hasBlock && this.div.removeBlock(id);
+		}
+
+		return hasChanged;
+	}
 }
 
 module.exports = InfoView;
