@@ -19,6 +19,9 @@ class TreeUI extends BaseUI {
 
 		this.tree = this.currentNode = tree;
 
+		// helps avoid unnecessary line nume logic. tuple containing first and last line numbers
+		this._lineNumCache = [null, null];
+
 		// TODO: setup other IVs
 	}
 
@@ -173,16 +176,39 @@ class TreeUI extends BaseUI {
 		}
 
 		const [start, end] = this.activeView.getViVisibleIndexBounds();
-		const scrollPosY = this.activeView.getScrollPosY();
 		const numBlocks = end - start;
+		const scrollPosY = this.activeView.getScrollPosY();
 		const cursorRow = this.getCursorRow();
 
-		const lineNumbers = (new Array(numBlocks + 1)).fill(null).map((_, idx) => {
+		const calculateLineNumber = (idx) => {
 			return Math.abs(idx - cursorRow + scrollPosY);
+		};
+
+		// check to see if we can skip updating line numbers at all
+		const canSkip = (() => {
+			const firstNum = calculateLineNumber(0);
+			const lastNum = calculateLineNumber(numBlocks);
+
+			if (firstNum === this._lineNumCache[0] && lastNum === this._lineNumCache[1]) {
+				return true;
+			}
+
+			return false;
+		})();
+
+		if (canSkip) {
+			return;
+		}
+
+		const lineNumbers = (new Array(numBlocks + 1)).fill(null).map((_, idx) => {
+			return calculateLineNumber(idx);
 		});
 
 		this.linesView.setArray(lineNumbers);
 		this.linesView.setupAllBlocks(true);
+
+		this._lineNumCache[0] = lineNumbers[0];
+		this._lineNumCache[1] = lineNumbers[numBlocks];
 	}
 
 	addCustomKeymaps() {
