@@ -66,7 +66,7 @@ class Vats extends EventEmitter {
 
 	// TODO: return whether a change was made
 	setColorScheme(scheme) {
-		this.colorScheme.setColorScheme(scheme);
+		this.colorScheme.use(scheme);
 	}
 
 	init() {

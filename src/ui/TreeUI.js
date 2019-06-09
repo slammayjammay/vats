@@ -1,6 +1,7 @@
 const ansiEscapes = require('ansi-escapes');
 const stringWidth = require('string-width');
 const cliTruncate = require('cli-truncate');
+const chalk = require('chalk');
 const TerminalJumper = require('../../../terminal-jumper');
 const BaseUI = require('./BaseUI');
 const ArrayView = require('./subviews/ArrayView');
@@ -28,6 +29,7 @@ class TreeUI extends BaseUI {
 	init(vats, options) {
 		super.init(...arguments);
 
+		this.setColorSchemeDefault();
 		this.createUI();
 		this.addCustomKeymaps();
 
@@ -78,8 +80,21 @@ class TreeUI extends BaseUI {
 		this.showLineNumbers(true);
 	}
 
+	setColorSchemeDefault() {
+		this.vats.colorScheme.defineScheme('default', new Map([
+			['colorHeader', chalk.bold.green],
+			['colorItem2', chalk.white],
+			['colorItem2Active', chalk.bgWhite.bold.hex('#000000')],
+			['colorInfoHeader', chalk.bgWhite.bold.hex('#000000')],
+			['colorInfoWarn', chalk.bgRed.white.bold],
+			['colorLineNumbers', chalk.yellow]
+		]));
+
+		this.vats.colorScheme.use('default');
+	}
+
 	getActiveColumnIdx() {
-		return this.getColumnWidths().length - 2;
+		return Math.max(0, this.getColumnWidths().length - 2);
 	}
 
 	getColumnWidths() {
