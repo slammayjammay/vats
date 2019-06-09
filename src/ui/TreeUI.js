@@ -421,10 +421,23 @@ class TreeUI extends BaseUI {
 		this.info(`Command not found: ${command}`, { warn: true, render: true });
 	}
 
-	onCommand({ argv }) {
+	onCommand({ argv, fyis }) {
 		const command = argv._[0];
 
-		if (command === 'set') {
+		fyis.set('command-not-found', false);
+
+		if (/^\s*\d+\s*$/.test(command)) {
+			const newCursorRow = parseInt(command);
+			const newScrollPosY = this.vats.viCursorNavigation.getScrollPosition(
+				newCursorRow,
+				this.getViPageHeight(),
+				this.getViVisibleIndexBounds(),
+				this.getCursorRow()
+			);
+
+			const needsRender = this.setCursorRowAndScrollPosition(newCursorRow, newScrollPosY);
+			needsRender && this.render();
+		} else if (command === 'set') {
 			let bool = null;
 
 			if (['linenumbers', 'line-numbers'].includes(argv._[1])) {
@@ -439,6 +452,8 @@ class TreeUI extends BaseUI {
 				this._syncLineNumbersWithActiveColumn();
 				this.render();
 			}
+		} else {
+			fyis.set('command-not-found', true);
 		}
 	}
 

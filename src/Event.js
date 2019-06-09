@@ -4,11 +4,9 @@ class Event {
 		Object.assign(this, data);
 
 		this.preventDefault = this.preventDefault.bind(this);
-		this.getFyi = this.getFyi.bind(this);
-		this.fyi = this.fyi.bind(this);
 
 		this._defaultPrevented = false;
-		this._fyis = {};
+		this.fyis = new Map();
 	}
 
 	isDefaultPrevented() {
@@ -17,14 +15,6 @@ class Event {
 
 	preventDefault() {
 		this._defaultPrevented = true;
-	}
-
-	getFyi(val) {
-		return this._fyis[val];
-	}
-
-	fyi(key, val) {
-		this._fyis[key] = val;
 	}
 }
 

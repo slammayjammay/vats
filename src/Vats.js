@@ -126,12 +126,10 @@ class Vats extends EventEmitter {
 		}
 	}
 
-	_defaultBehaviorForCommand({ argv, commandString, commandPrompt, getFyi }) {
+	_defaultBehaviorForCommand({ argv, commandString, commandPrompt, fyis }) {
 		const command = argv._[0];
 
-		if (/^\s*\d+\s*$/.test(command)) {
-			this.renderCursorAtIdx(parseInt(command) || 0);
-		} else if (['h', 'help'].includes(command)) {
+		if (['h', 'help'].includes(command)) {
 			this.printToPager('showing VATS help screen');
 		} else if (['exit', 'q', 'quit'].includes(command)) {
 			this.quit();
@@ -146,9 +144,9 @@ class Vats extends EventEmitter {
 
 			this._lastSearchQuery = query;
 			this._lastSearchDir = count > 0 ? 1 : -1;
-		} else if (getFyi('command-not-found')) {
-			const cmd = typeof getFyi('command-not-found') === 'string' ?
-				getFyi('command-not-found') : command;
+		} else if (fyis.get('command-not-found')) {
+			const cmd = typeof fyis.get('command-not-found') === 'string' ?
+				fyis.get('command-not-found') : command;
 			this.emitEvent('command-not-found', { command: cmd });
 		}
 	}
