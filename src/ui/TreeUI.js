@@ -181,7 +181,8 @@ class TreeUI extends BaseUI {
 		const cursorRow = this.getCursorRow();
 
 		const calculateLineNumber = (idx) => {
-			return Math.abs(idx - cursorRow + scrollPosY);
+			const lineNum = Math.abs(idx - cursorRow + scrollPosY);
+			return lineNum === 0 ? idx : lineNum;
 		};
 
 		// check to see if we can skip updating line numbers at all
@@ -427,10 +428,11 @@ class TreeUI extends BaseUI {
 		fyis.set('command-not-found', false);
 
 		if (/^\s*\d+\s*$/.test(command)) {
-			const newCursorRow = parseInt(command);
+			const pageHeight = this.getViPageHeight();
+			const newCursorRow = Math.min(pageHeight, parseInt(command));
 			const newScrollPosY = this.vats.viCursorNavigation.getScrollPosition(
 				newCursorRow,
-				this.getViPageHeight(),
+				pageHeight,
 				this.getViVisibleIndexBounds(),
 				this.getCursorRow()
 			);
