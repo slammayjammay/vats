@@ -192,20 +192,22 @@ class TreeUI extends BaseUI {
 
 		const [start, end] = this.activeView.getViVisibleIndexBounds();
 		const numBlocks = end - start;
-		const scrollPosY = this.activeView.getScrollPosY();
 		const cursorRow = this.getCursorRow();
 
 		const calculateLineNumber = (idx) => {
-			const lineNum = Math.abs(idx - cursorRow + scrollPosY);
-			return lineNum === 0 ? idx : lineNum;
+			const lineNum = Math.abs(idx - cursorRow + start);
+			return lineNum === 0 ? idx + start : lineNum;
 		};
 
 		// check to see if we can skip updating line numbers at all
 		const canSkip = (() => {
 			const firstNum = calculateLineNumber(0);
-			const lastNum = calculateLineNumber(numBlocks);
+			const lastNum = calculateLineNumber(numBlocks) - start;
 
-			if (firstNum === this._lineNumCache[0] && lastNum === this._lineNumCache[1]) {
+			if (
+				firstNum === this._lineNumCache[0] &&
+				lastNum === this._lineNumCache[1]
+			) {
 				return true;
 			}
 
@@ -213,6 +215,8 @@ class TreeUI extends BaseUI {
 		})();
 
 		if (canSkip) {
+			this.linesView.array[cursorRow - start] = cursorRow;
+			this.linesView.updateBlocks(cursorRow - start);
 			return;
 		}
 
@@ -221,10 +225,10 @@ class TreeUI extends BaseUI {
 		});
 
 		this.linesView.setArray(lineNumbers);
-		this.linesView.setupAllBlocks(true);
+		this.linesView.setupAllBlocks(true); // maybe there's a better way than this
 
 		this._lineNumCache[0] = lineNumbers[0];
-		this._lineNumCache[1] = lineNumbers[numBlocks];
+		this._lineNumCache[1] = lineNumbers[numBlocks] - start;
 	}
 
 	addCustomKeymaps() {

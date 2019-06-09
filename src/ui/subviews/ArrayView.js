@@ -105,6 +105,7 @@ class ArrayView extends BaseSubview {
 	 */
 	updateBlocks(indices) {
 		if (Number.isInteger(indices)) {
+			// TODO: #updateBlock
 			this.setBlockContentForIdx(indices);
 		} else if (!indices) {
 			for (const [idx] of this.array.entries()) {
