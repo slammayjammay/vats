@@ -176,10 +176,12 @@ class Keymapper {
 			keyString = key.name;
 		} else if (char === key.sequence) {
 			keyString = char;
-		} else if (NODE_KEY_CONVERSION[key.name]) {
-			keyString = NODE_KEY_CONVERSION[key.name];
 		} else {
 			keyString = key.name;
+		}
+
+		if (NODE_KEY_CONVERSION[key.name]) {
+			keyString = NODE_KEY_CONVERSION[key.name];
 		}
 
 		// order matters!

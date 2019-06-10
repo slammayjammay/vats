@@ -94,7 +94,7 @@ class TreeUI extends BaseUI {
 	}
 
 	getActiveColumnIdx() {
-		return Math.max(0, this.getColumnWidths().length - 2);
+		return Math.max(0, this.columns.length - 2);
 	}
 
 	getColumnWidths() {
@@ -175,8 +175,7 @@ class TreeUI extends BaseUI {
 			hasChanged = true;
 		} else if (!bool && this.linesView.isEnabled) {
 			this.linesView.disable();
-			const columnWidths = this.getColumnWidths();
-			childOptions.width = columnWidths[columnWidths.length - 1];
+			childOptions.width = this.columns[this.columns.length - 1];
 			const leftId = this.columns[this.activeColumnIdx - 1].div.options.id;
 			activeOptions.left = `{${leftId}} + 1`;
 			hasChanged = true;
@@ -235,8 +234,13 @@ class TreeUI extends BaseUI {
 		const { keymapper } = this.vats;
 		keymapper.keymap.set('shift+UP_ARROW', 'scroll-child-view-up');
 		keymapper.keymap.set('shift+DOWN_ARROW', 'scroll-child-view-down');
-		keymapper.keymap.set('ctrl+shift+UP_ARROW', 'scroll-child-view-up-fast');
-		keymapper.keymap.set('ctrl+shift+DOWN_ARROW', 'scroll-child-view-down-fast');
+		keymapper.keymap.set('shift+LEFT_ARROW', 'scroll-child-view-left');
+		keymapper.keymap.set('shift+RIGHT_ARROW', 'scroll-child-view-right');
+
+		keymapper.keymap.set('shift+ctrl+UP_ARROW', 'scroll-child-view-up-fast');
+		keymapper.keymap.set('shift+ctrl+DOWN_ARROW', 'scroll-child-view-down-fast');
+		keymapper.keymap.set('shift+ctrl+LEFT_ARROW', 'scroll-child-view-left-fast');
+		keymapper.keymap.set('shift+ctrl+RIGHT_ARROW', 'scroll-child-view-right-fast');
 	}
 
 	setupArrayViewDisplays() {
@@ -385,8 +389,12 @@ class TreeUI extends BaseUI {
 		const isArrayView = this.currentChildView === this.childArrayView;
 		const needsSwap = hasChildren !== isArrayView;
 
-		needsSwap && this.currentChildView.div.reset();
 		this.currentChildView = hasChildren ? this.childArrayView : this.childAltView;
+
+		if (needsSwap) {
+			this.currentChildView.div.reset();
+			this.columns[this.columns.length - 1] = this.currentChildView;
+		}
 
 		if (hasChildren) {
 			this._setupArrayView(this.currentChildView, childNode);
@@ -424,12 +432,10 @@ class TreeUI extends BaseUI {
 			i--;
 		}
 
-		if (curNode === startNode) {
-			const isArrayView = this.currentChildView === this.childArrayView;
-			this[isArrayView ? '_setupArrayView' : '_setupChildAltView'](view, node);
+		if (node === startNode) {
+			this._setupChildView(node);
 		} else {
 			this._setupArrayView(view, node);
-			// childIndices ? view.updateBlocks(childIndices) : this._setupArrayView(view, node);
 		}
 	}
 
@@ -499,9 +505,15 @@ class TreeUI extends BaseUI {
 				this.vats.emitEvent('select', { item: child });
 			}
 		} else if (keyAction.includes('scroll-child-view')) {
-			const dir = keyAction.includes('up') ? -1 : 1;
-			const isFast = keyAction.includes('fast');
-			this.scrollChildView(dir, isFast);
+			const dir = /scroll-child-view-(\w+)/.exec(keyAction)[1];
+			let x, y;
+
+			if (dir === 'up') [x, y] = [0, -1];
+			if (dir === 'down') [x, y] = [0, 1];
+			if (dir === 'left') [x, y] = [-1, 0];
+			if (dir === 'right') [x, y] = [1, 0];
+
+			this.scrollChildView(x, y, keyAction.includes('fast'));
 			needsRender = true;
 		}
 
@@ -526,9 +538,12 @@ class TreeUI extends BaseUI {
 		this._syncLineNumbersWithActiveColumn();
 	}
 
-	scrollChildView(dir, isFast) {
-		const mag = dir * (isFast ? this.currentChildView.div.height() * 0.5 : 1);
-		this.currentChildView.div.scrollDown(dir * mag);
+	scrollChildView(x, y, isFast) {
+		const magX = x * (isFast ? this.currentChildView.div.width() * 0.5 : 1);
+		const magY = y * (isFast ? this.currentChildView.div.height() * 0.5 : 1);
+
+		x !== 0 && this.currentChildView.div.scrollRight(magX);
+		y !== 0 && this.currentChildView.div.scrollDown(magY);
 	}
 
 	getViPageHeight() {
