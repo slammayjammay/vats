@@ -49,6 +49,9 @@ class TreeUI extends BaseUI {
 			debug: this.vats.options.debug
 		});
 
+		// TODO: ick
+		this.jumper.removeDivision('default-division');
+
 		// setup columns
 		const columnWidths = this.getColumnWidths();
 
@@ -175,7 +178,8 @@ class TreeUI extends BaseUI {
 			hasChanged = true;
 		} else if (!bool && this.linesView.isEnabled) {
 			this.linesView.disable();
-			childOptions.width = this.columns[this.columns.length - 1];
+			const columnWidths = this.getColumnWidths();
+			childOptions.width = columnWidths[columnWidths.length - 1];
 			const leftId = this.columns[this.activeColumnIdx - 1].div.options.id;
 			activeOptions.left = `{${leftId}} + 1`;
 			hasChanged = true;
@@ -224,7 +228,7 @@ class TreeUI extends BaseUI {
 		});
 
 		this.linesView.setArray(lineNumbers);
-		this.linesView.setupAllBlocks(true); // maybe there's a better way than this
+		this.linesView.setupAllBlocks(true); // TODO: maybe there's a better way than this
 
 		this._lineNumCache[0] = lineNumbers[0];
 		this._lineNumCache[1] = lineNumbers[numBlocks] - start;
@@ -476,6 +480,9 @@ class TreeUI extends BaseUI {
 			}
 
 			if (bool !== null && this.showLineNumbers(bool)) {
+				// dynamically added divisions are not handled correctly by
+				// TerminalJumper
+				this.jumper.setDirty();
 				this._syncLineNumbersWithActiveColumn();
 				this.render();
 			}
