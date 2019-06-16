@@ -188,7 +188,7 @@ class TreeUI extends BaseUI {
 		return hasChanged;
 	}
 
-	_syncLineNumbersWithActiveColumn() {
+	syncLineNumbersWithActiveColumn() {
 		if (!this.linesView.isEnabled) {
 			return;
 		}
@@ -483,7 +483,7 @@ class TreeUI extends BaseUI {
 				// dynamically added divisions are not handled correctly by
 				// TerminalJumper
 				this.jumper.setDirty();
-				this._syncLineNumbersWithActiveColumn();
+				this.syncLineNumbersWithActiveColumn();
 				this.render();
 			}
 		} else {
@@ -542,7 +542,7 @@ class TreeUI extends BaseUI {
 
 	onHighlight({ item }) {
 		this._setupChildView(item);
-		this._syncLineNumbersWithActiveColumn();
+		this.syncLineNumbersWithActiveColumn();
 	}
 
 	scrollChildView(x, y, isFast) {
