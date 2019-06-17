@@ -29,7 +29,7 @@ class TreeUI extends BaseUI {
 	init(vats, options) {
 		super.init(...arguments);
 
-		this.setColorSchemeDefault();
+		this.setupColorScheme();
 		this.createUI();
 		this.addCustomKeymaps();
 
@@ -83,7 +83,7 @@ class TreeUI extends BaseUI {
 		this.showLineNumbers(true);
 	}
 
-	setColorSchemeDefault() {
+	setupColorScheme() {
 		this.vats.colorScheme.defineScheme('default', new Map([
 			['colorHeader', chalk.bold.green],
 			['colorItem2', chalk.white],
@@ -268,12 +268,9 @@ class TreeUI extends BaseUI {
 		}
 	}
 
-	formatListItemString(left, right, divWidth) {
+	formatListItemString(left, right, divWidth, paddingLeft = 1, paddingRight = 1) {
 		left = left.split('\n')[0];
 		right = right.split('\n')[0];
-
-		const paddingLeft = 1;
-		const paddingRight = 1;
 
 		const availableWidth = divWidth - paddingLeft - paddingRight;
 		const rightWidth = stringWidth(right);
@@ -314,6 +311,8 @@ class TreeUI extends BaseUI {
 	}
 
 	info(string, options = {}) {
+		string = new String(string);
+
 		if (string.split('\n').length >= this.jumper.getAvailableHeight()) {
 			this.vats.printToPager(string);
 			return;
@@ -529,6 +528,10 @@ class TreeUI extends BaseUI {
 	}
 
 	onCD({ item }) {
+		this.updateHeader();
+	}
+
+	updateHeader() {
 		let headerString = '';
 		let currentNode = this.currentNode;
 
