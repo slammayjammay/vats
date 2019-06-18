@@ -44,12 +44,16 @@ class ArrayView extends BaseSubview {
 	 * @param {string} string - The string to color.
 	 * @param {*} [item] - The item that the string represents.
 	 * @param {number} [idx] - The index of the item that the string represents.
-	 * @param {number} [divWidth] - The width of this div in columns.
 	 * @return {string}
 	 */
 	colorItemString(string, item, idx) {
-		const fn = this.displayFnMap.get('colorItemString');
-		return typeof fn === 'function' ? fn(...arguments) : colorScheme.colorItem1(string);
+		if (typeof this.displayFnMap.get('colorItemString') === 'function') {
+			return this.displayFnMap.get('colorItemString')(...arguments);
+		} else if (typeof colorScheme.getColorFunction('colorItem') === 'function') {
+			return colorScheme.getColorFunction('colorItem')(string);
+		} else {
+			return string;
+		}
 	}
 
 	/**
@@ -57,12 +61,16 @@ class ArrayView extends BaseSubview {
 	 * @param {string} string - The string to color.
 	 * @param {*} [item] - The item that the string represents.
 	 * @param {number} [idx] - The index of the item that the string represents.
-	 * @param {number} [divWidth] - The width of this div in columns.
 	 * @return {string}
 	 */
 	colorItemStringActive(string, item, idx) {
-		const fn = this.displayFnMap.get('colorItemStringActive');
-		return typeof fn === 'function' ? fn(...arguments) : colorScheme.colorItem1Active(string);
+		if (typeof this.displayFnMap.get('colorItemStringActive') === 'function') {
+			return this.displayFnMap.get('colorItemStringActive')(...arguments);
+		} else if (typeof colorScheme.getColorFunction('colorItemActive') === 'function') {
+			return colorScheme.getColorFunction('colorItemActive')(string);
+		} else {
+			return string;
+		}
 	}
 
 	setupAllBlocks(force) {

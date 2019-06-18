@@ -84,16 +84,18 @@ class TreeUI extends BaseUI {
 	}
 
 	setupColorScheme() {
-		this.vats.colorScheme.defineScheme('default', new Map([
+		colorScheme.defineScheme('tree', new Map([
 			['colorHeader', chalk.bold.green],
-			['colorItem2', chalk.white],
-			['colorItem2Active', chalk.bgWhite.bold.hex('#000000')],
+			['colorBranch', chalk.bold.blue],
+			['colorBranchActive', chalk.bgBlue.bold.hex('#000000')],
+			['colorLeaf', colorScheme.getColorFunction('colorItem', 'default')],
+			['colorLeafActive', colorScheme.getColorFunction('colorItemActive', 'default')],
 			['colorInfoHeader', chalk.bgWhite.bold.hex('#000000')],
 			['colorInfoWarn', chalk.bgRed.white.bold],
 			['colorLineNumbers', chalk.yellow]
 		]));
 
-		this.vats.colorScheme.use('default');
+		colorScheme.use('tree');
 	}
 
 	getActiveColumnIdx() {
@@ -257,13 +259,13 @@ class TreeUI extends BaseUI {
 			});
 
 			view.displayFnMap.set('colorItemString', (string, node, idx) => {
-				const fn = node.hasChildren() ? 'colorItem1' : 'colorItem2';
-				return this.vats.colorScheme[fn](string);
+				const fn = node.hasChildren() ? 'colorBranch' : 'colorLeaf';
+				return colorScheme[fn](string);
 			});
 
 			view.displayFnMap.set('colorItemStringActive', (string, node, idx) => {
-				const fn = node.hasChildren() ? 'colorItem1Active' : 'colorItem2Active';
-				return this.vats.colorScheme[fn](string);
+				const fn = node.hasChildren() ? 'colorBranchActive' : 'colorLeafActive';
+				return colorScheme[fn](string);
 			});
 		}
 	}
@@ -306,7 +308,7 @@ class TreeUI extends BaseUI {
 	}
 
 	setHeader(headerString) {
-		this.headerView.setText(this.vats.colorScheme.colorHeader(headerString));
+		this.headerView.setText(colorScheme.colorHeader(headerString));
 		this.headerView.update();
 	}
 
@@ -528,10 +530,10 @@ class TreeUI extends BaseUI {
 	}
 
 	onCD({ item }) {
-		this.updateHeader();
+		this.updateHeader(item);
 	}
 
-	updateHeader() {
+	updateHeader(item) {
 		let headerString = '';
 		let currentNode = this.currentNode;
 
