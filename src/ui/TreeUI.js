@@ -377,7 +377,7 @@ class TreeUI extends BaseUI {
 		}
 
 		this.vats.emitEvent('cd', { item: this.currentNode });
-		this.vats.emitEvent('highlight', { item: this.currentNode.getHighlightedChild() });
+		this.vats.emitEvent('highlight', { item: this.currentNode.getActiveChild() });
 
 		return true;
 	}
@@ -420,7 +420,7 @@ class TreeUI extends BaseUI {
 	update(node, childIndices) {
 		let view;
 
-		const startNode = this.currentNode.getHighlightedChild();
+		const startNode = this.currentNode.getActiveChild();
 		let [i, curNode] = [this.columns.length - 1, startNode];
 
 		while (i >= 0) {
@@ -505,7 +505,7 @@ class TreeUI extends BaseUI {
 		if (keyAction === 'vi:cursor-left') {
 			needsRender = this.cd(this.currentNode.parent);
 		} else if (['vi:cursor-right', 'enter'].includes(keyAction)) {
-			const child = this.currentNode.getHighlightedChild();
+			const child = this.currentNode.getActiveChild();
 
 			if (child.hasChildren()) {
 				needsRender = this.cd(child);
@@ -582,7 +582,7 @@ class TreeUI extends BaseUI {
 		}
 
 		if (cursorRowChanged) {
-			this.vats.emitEvent('highlight', { item: this.currentNode.getHighlightedChild() });
+			this.vats.emitEvent('highlight', { item: this.currentNode.getActiveChild() });
 		}
 
 		return cursorRowChanged || scrollPosChanged;

@@ -47,7 +47,7 @@ class Tree {
 		return this.getChildren().slice(startIdx, endIdx);
 	}
 
-	getHighlightedChild() {
+	getActiveChild() {
 		return this.getChildren()[this.activeIdx];
 	}
 
@@ -63,7 +63,7 @@ class Tree {
 	/**
 	 * @param {Tree|number}
 	 */
-	setHighlighted(nodeOrIdx) {
+	setActiveChild(nodeOrIdx) {
 		const idx = nodeOrIdx instanceof Tree ? this.getChildren().indexOf(nodeOrIdx) : nodeOrIdx;
 		const newIdx = this._constrainIdx(idx);
 
