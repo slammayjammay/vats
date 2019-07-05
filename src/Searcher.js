@@ -49,7 +49,7 @@ class Searcher {
 		// search or reuse cached results if possible
 		let foundIndices;
 		if (opts.cache && this._cache[query] && this._cache[query].items === items) {
-			foundIndices = this._cache.foundIndices;
+			foundIndices = this._cache[query].foundIndices;
 		} else {
 			foundIndices = items.reduce((found, item, idx) => {
 				opts.testFn(item, query, idx) && found.push(idx);
