@@ -225,8 +225,11 @@ class Keymapper {
 		return { keyString, count };
 	}
 
-	// TODO
-	destroy() {}
+	destroy() {
+		this._input = this._numReads = null;
+		this.readFunctionMap = this.keymap = null;
+		this._inputTree = this._inputNode = this._isReading = null;
+	}
 }
 
 module.exports = Keymapper;

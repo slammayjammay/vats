@@ -20,10 +20,23 @@ class TreeUI extends BaseUI {
 
 		this.tree = this.currentNode = tree;
 
-		// helps avoid unnecessary line nume logic. tuple containing first and last line numbers
+		// helps avoid unnecessary line num logic. tuple containing first and last line numbers
 		this._lineNumCache = [null, null];
 
-		// TODO: setup other IVs
+		this.jumper = null;
+
+		// array of each column view
+		this.columns = [];
+
+		// the last view switches between ArrayView and an alternate view
+		// hold references to each
+		this.childArrayView = this.childAltView = null;
+
+		// half-ass attempt to make the "active view" changeable
+		this.activeColumnIdx = this.activeView = null;
+
+		// more view refs
+		this.headerView = this.infoView = this.linesView = null;
 	}
 
 	init(vats, options) {

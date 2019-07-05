@@ -95,7 +95,6 @@ class CommandMode {
 		this.rl.close();
 	}
 
-	// TODO: is this even necessary
 	resolve(val) {
 		if (this._resolve) {
 			const resolve = this._resolve;

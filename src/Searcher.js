@@ -111,8 +111,9 @@ class Searcher {
 		return foundIndices[newIdx];
 	}
 
-	// TODO
-	destroy() {}
+	destroy() {
+		this._cache = null;
+	}
 }
 
 module.exports = Searcher;

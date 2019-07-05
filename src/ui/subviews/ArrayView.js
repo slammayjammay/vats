@@ -79,16 +79,9 @@ class ArrayView extends BaseSubview {
 		// the block's content to the item's calculated string.
 
 		for (const [idx, item] of this.array.entries()) {
-			const existingBlock = this._getBlock(idx);
-
-			// TODO: this stuff should probably live inside terminal jumper
-			// if (!force && this._diff[idx] === item && existingBlock) {
-			// 	continue; // TODO: hang on, why is this necessary?
-			// }
-
 			this._diff[idx] = item;
 
-			if (!existingBlock) {
+			if (!this._getBlock(idx)) {
 				this.div.addBlock();
 			}
 
