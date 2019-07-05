@@ -45,6 +45,8 @@ class BaseView {
 		needsRender && this.render();
 	}
 
+	// TODO: render only visible children
+
 	/**
 	 * @return {number} - total height of page content.
 	 */

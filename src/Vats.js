@@ -82,6 +82,10 @@ class Vats extends EventEmitter {
 		this.ui.init(this, this.options);
 	}
 
+	render() {
+		this.ui.render(...arguments);
+	}
+
 	/**
 	 * All events will be emitted via this method.
 	 *
@@ -134,8 +138,7 @@ class Vats extends EventEmitter {
 		} else if (['exit', 'q', 'quit'].includes(command)) {
 			this.quit();
 		} else if (['redraw', 'render'].includes(command)) {
-			this.update('all');
-			this.render();
+			this.render(true);
 		} else if (command === 'search') {
 			const count = commandPrompt === '?' ? -1 : 1;
 			const query = argv._.slice(1).join(' ');
@@ -289,109 +292,6 @@ class Vats extends EventEmitter {
 	_catchError(e) {
 		this.printToPager(e.stack);
 	}
-
-	// update(idOrNode) {
-	// 	const divisionIds = this._getAffectedDivisionsFor(idOrNode);
-
-	// 	for (const id of divisionIds) {
-	// 		if (['parent', 'current', 'child'].includes(id)) {
-	// 			this._setupDiv(id);
-	// 		} else {
-	// 			this.jumper.setDirty(id);
-	// 		}
-	// 	}
-
-	// 	this.currentNode.parent && this.currentNode.parent.update();
-	// 	this.currentNode.update();
-	// 	const child = this.currentNode.getHighlightedChild();
-	// 	child && child.update();
-
-	// 	this._setupDiv('child');
-
-	// 	this._colorNodeCurrentChild('current', this.currentNode);
-
-	// 	this.viCursorNavigation.clearSearchCache();
-	// }
-
-	// render(idOrNode) {
-	// 	const divisionIds = this._getAffectedDivisionsFor(idOrNode);
-
-	// 	for (const divisionId of divisionIds) {
-	// 		this.jumper.setNeedsRender(divisionId);
-	// 	}
-
-	// 	process.stdout.write(this._render() + ansiEscapes.cursorHide);
-	// }
-
-	/**
-	 * Important: "visible" means any children that are inside the "current"
-	 * column. This does not change even if the "info" container overlaps
-	 * "current" column.
-	 */
-	// getVisibleChildrenFor(node) {
-	// 	if (node === 'parent') node = this.currentNode.parent;
-	// 	if (node === 'current') node = this.currentNode;
-	// 	if (node === 'chidl') node = this.currentNode.getHighlightedChild();
-
-	// 	return node.getVisibleChildren(...this.getVisibleChildIndicesFor(node));
-	// }
-
-	// getVisibleChildIndicesFor(node) {
-	// 	let column = node;
-
-	// 	if (node === this.currentNode.parent) column = 'parent';
-	// 	if (node === this.currentNode) column = 'current';
-	// 	if (node === this.currentNode.getHighlightedChild()) column = 'child';
-
-	// 	if (!['parent', 'current', 'child'].includes(column)) {
-	// 		throw new Error(`Could not find column associated with "${node}".`);
-	// 	}
-
-	// 	const div = this.jumper.getDivision(column);
-	// 	return [div.scrollPosY(), div.scrollPosY() + div.height()];
-	// }
-
-	// _getAffectedDivisionsFor(idOrNode) {
-	// 	if (!idOrNode) {
-	// 		return [];
-	// 	} else if (idOrNode === 'all') {
-	// 		const all = ['header', 'parent', 'current', 'child', 'info'];
-	// 		return this.jumper.hasDivision('lines') ? ['lines', ...all] : all;
-	// 	} else if (typeof idOrNode === 'string') {
-	// 		return idOrNode.trim().split(/\s/);
-	// 	} else if (idOrNode instanceof Node) {
-	// 		return [this._getDivisionIdFromNode(idOrNode)];
-	// 	} else if (Array.isArray(idOrNode)) {
-	// 		return idOrNode
-	// 			.map(item => this._getAffectedDivisionsFor(item)[0])
-	// 			.filter(item => !!item);
-	// 	}
-	// }
-
-	// _getDivisionIdFromNode(node) {
-	// 	if (node === this.currentNode.parent) {
-	// 		return 'parent';
-	// 	} else if (node === this.currentNode) {
-	// 		return 'current';
-	// 	} else if (node === this.currentNode.getHighlightedChild()) {
-	// 		return 'child';
-	// 	}
-
-	// 	return null;
-	// }
-
-	// _getNodeFromDivisionId(divisionId) {
-	// 	if (divisionId === 'parent') {
-	// 		return this.currentNode.parent;
-	// 	} else if (divisionId === 'current') {
-	// 		return this.currentNode;
-	// 	} else if (divisionId === 'child') {
-	// 		return this.currentNode.getHighlightedChild();
-	// 	}
-
-	// 	return null;
-	// }
-
 }
 
 module.exports = Vats;
