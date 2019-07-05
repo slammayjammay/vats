@@ -330,7 +330,7 @@ class TreeUI extends BaseUI {
 		string = new String(string);
 
 		if (string.split('\n').length >= this.jumper.getAvailableHeight()) {
-			this.vats.printToPager(string);
+			this.vats.pager(string);
 			return;
 		}
 

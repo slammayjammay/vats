@@ -71,7 +71,7 @@ class Vats extends EventEmitter {
 
 	init() {
 		if (this.options.useAlternateScreen) {
-			spawnSync('tput smcup', [], { shell: true, stdio: 'inherit' });
+			this.enterAlternateScreen();
 		}
 
 		process.stdin.resume();
@@ -134,7 +134,7 @@ class Vats extends EventEmitter {
 		const command = argv._[0];
 
 		if (['h', 'help'].includes(command)) {
-			this.printToPager('showing VATS help screen');
+			this.pager('showing VATS help screen');
 		} else if (['exit', 'q', 'quit'].includes(command)) {
 			this.quit();
 		} else if (['redraw', 'render'].includes(command)) {
@@ -193,21 +193,28 @@ class Vats extends EventEmitter {
 		}
 	}
 
-	// TODO: rename #logToPager
-	printToPager(string) {
+	async pager(string) {
 		this.emitEvent('pager:enter');
 
 		if (this.options.useAlternateScreen) {
-			spawnSync('tput rmcup', [], { shell: true, stdio: 'inherit' });
+			this.exitAlternateScreen();
 		}
 
-		pager(string).then(() => {
-			if (this.options.useAlternateScreen) {
-				spawnSync('tput smcup', [], { shell: true, stdio: 'inherit' });
-			}
+		await pager(string);
 
-			this.emitEvent('pager:exit');
-		});
+		if (this.options.useAlternateScreen) {
+			this.enterAlternateScreen();
+		}
+
+		this.emitEvent('pager:exit');
+	}
+
+	enterAlternateScreen() {
+		spawnSync('tput smcup', { shell: true, stdio: 'inherit' });
+	}
+
+	exitAlternateScreen() {
+		spawnSync('tput rmcup', { shell: true, stdio: 'inherit' });
 	}
 
 	async prompt(prompt) {
@@ -265,10 +272,6 @@ class Vats extends EventEmitter {
 	}
 
 	destroy() {
-		if (this.options.useAlternateScreen) {
-			spawnSync('tput rmcup', [], { shell: true, stdio: 'inherit' });
-		}
-
 		this.ui.destroy();
 		this.commandMode.destroy();
 		this.viCursorNavigation.destroy();
@@ -285,12 +288,17 @@ class Vats extends EventEmitter {
 
 	quit() {
 		this.ui.quit();
+
+		if (this.options.useAlternateScreen) {
+			this.exitAlternateScreen();
+		}
+
 		this.destroy();
 		process.exit();
 	}
 
 	_catchError(e) {
-		this.printToPager(e.stack);
+		this.pager(e.stack);
 	}
 }
 
