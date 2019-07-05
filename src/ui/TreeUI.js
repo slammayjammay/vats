@@ -307,7 +307,8 @@ class TreeUI extends BaseUI {
 		super.onPagerExit(...arguments);
 	}
 
-	render() {
+	render(force) {
+		force && this.jumper.setDirty();
 		process.stdout.write(this.renderString());
 	}
 
