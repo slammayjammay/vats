@@ -73,11 +73,9 @@ class ArrayView extends BaseSubview {
 		}
 	}
 
-	setupAllBlocks(force) {
+	syncBlocks() {
 		// sync TerminalJumper blocks for this division with the array structure.
-		// if an item already has a block associated with it, skip. otherwise set
-		// the block's content to the item's calculated string.
-
+		// set the block's content to the item's string.
 		for (const [idx, item] of this.array.entries()) {
 			this._diff[idx] = item;
 
@@ -106,17 +104,17 @@ class ArrayView extends BaseSubview {
 	 */
 	updateBlocks(indices) {
 		if (Number.isInteger(indices)) {
-			// TODO: #updateBlock
 			this.setBlockContentForIdx(indices);
-		} else if (!indices) {
-			for (const [idx] of this.array.entries()) {
-				this.setBlockContentForIdx(idx);
-			}
 		} else {
-			for (const idx of indices) {
+			const idxs = indices ? indices : this.array.map((_, idx) => idx);
+			for (const idx of idxs) {
 				this.setBlockContentForIdx(indices);
 			}
 		}
+	}
+
+	updateBlock(idx) {
+		this.setBlockContentForIdx(idx);
 	}
 
 	setBlockContentForIdx(idx) {

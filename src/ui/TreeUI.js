@@ -30,7 +30,7 @@ class TreeUI extends BaseUI {
 
 		// the last view switches between ArrayView and an alternate view
 		// hold references to each
-		this.childArrayView = this.childAltView = null;
+		this.currentChildView = this.childArrayView = this.childAltView = null;
 
 		// half-ass attempt to make the "active view" changeable
 		this.activeColumnIdx = this.activeView = null;
@@ -243,7 +243,7 @@ class TreeUI extends BaseUI {
 		});
 
 		this.linesView.setArray(lineNumbers);
-		this.linesView.setupAllBlocks(true); // TODO: maybe there's a better way than this
+		this.linesView.syncBlocks(); // TODO: maybe there's a better way than this
 
 		this._lineNumCache[0] = lineNumbers[0];
 		this._lineNumCache[1] = lineNumbers[numBlocks] - start;
@@ -399,7 +399,7 @@ class TreeUI extends BaseUI {
 	_setupArrayView(view, node) {
 		view.setArray(node ? node.getChildren() : []);
 		view.setActiveIdx(node ? node.activeIdx : 0);
-		view.setupAllBlocks(true);
+		view.syncBlocks();
 		view.setScrollPosY(node ? node.scrollPosY : 0);
 	}
 
@@ -432,7 +432,23 @@ class TreeUI extends BaseUI {
 	 * If no children indices are given, update everything.
 	 */
 	update(node, childIndices) {
-		let view;
+		const view = this.getViewForNode(node);
+
+		if (childIndices !== undefined) {
+			// if childIndices are given, assume that this node's view is an ArrayView
+			view.updateBlocks(childIndices);
+		} else if (view === this.currentChildView) {
+			this._setupChildView(node);
+		} else {
+			this._setupArrayView(view, node);
+		}
+	}
+
+	/**
+	 * Return {View|null}
+	 */
+	getViewForNode(node) {
+		let view = null;
 
 		const startNode = this.currentNode.getActiveChild();
 		let [i, curNode] = [this.columns.length - 1, startNode];
@@ -444,18 +460,14 @@ class TreeUI extends BaseUI {
 			}
 
 			if (!curNode.parent) {
-				return; // node is not associated with a view
+				return null; // node is not associated with a view
 			}
 
 			curNode = curNode.parent;
 			i--;
 		}
 
-		if (node === startNode) {
-			this._setupChildView(node);
-		} else {
-			this._setupArrayView(view, node);
-		}
+		return view;
 	}
 
 	onCommandModeEnter() {
