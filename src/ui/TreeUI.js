@@ -47,8 +47,8 @@ class TreeUI extends BaseUI {
 		this.addCustomKeymaps();
 
 		this.vats.on('command', (...args) => this.onCommand(...args));
-		this.vats.on('command-mode:enter', (...args) => this.onCommandModeEnter(...args));
 		this.vats.on('command-not-found', (...args) => this.onCommandNotFound(...args));
+		this.vats.on('keypress', (...args) => this.onKeypress(...args));
 		this.vats.on('keybinding', (...args) => this.onKeybinding(...args));
 		this.vats.on('cd', (...args) => this.onCD(...args));
 		this.vats.on('highlight', (...args) => this.onHighlight(...args));
@@ -470,18 +470,12 @@ class TreeUI extends BaseUI {
 		return view;
 	}
 
-	onCommandModeEnter() {
-		this.clearInfo({ render: true });
-	}
-
 	onCommandNotFound({ command }) {
 		this.info(`Command not found: ${command}`, { warn: true, render: true });
 	}
 
 	onCommand({ argv, fyis }) {
 		const command = argv._[0];
-
-		fyis.set('command-not-found', false);
 
 		if (/^\s*\d+\s*$/.test(command)) {
 			const pageHeight = this.getViPageHeight();
@@ -518,6 +512,14 @@ class TreeUI extends BaseUI {
 		}
 	}
 
+	onKeypress({ char, key }) {
+		// clear info if entering command mode through keypress (as opposed to
+		// prompt). this is a yucky way to do this
+		if (char === ':') {
+			this.clearInfo({ render: true });
+		}
+	}
+
 	onKeybinding({ keyString, keyAction, count, charsRead, preventDefault }) {
 		const blacklist = ['vi:cursor-left', 'vi:cursor-right'];
 		if (blacklist.includes(keyAction)) {
@@ -533,7 +535,9 @@ class TreeUI extends BaseUI {
 		} else if (['vi:cursor-right', 'enter'].includes(keyAction)) {
 			const child = this.currentNode.getActiveChild();
 
-			if (child.hasChildren()) {
+			const didCD = this.cd(child);
+
+			if (didCD) {
 				needsRender = this.cd(child);
 			} else {
 				this.vats.emitEvent('select', { item: child });

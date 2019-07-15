@@ -8,9 +8,7 @@ class InfoView extends BaseSubview {
 			string = colorScheme.colorInfoWarn(string);
 		}
 
-		if (options.header !== undefined) {
-			this.setInfoHeader(options.header);
-		}
+		this.setInfoHeader(options.header);
 
 		const hasBlock = this.div.jumper.hasBlock('info.info');
 		const block = this.div.jumper[hasBlock ? 'getBlock' : 'addBlock']('info.info', '');
@@ -27,11 +25,14 @@ class InfoView extends BaseSubview {
 		}
 
 		const block = this.div.jumper[hasBlock ? 'getBlock' : 'addBlock']('info.header', '', 0);
+		const divWidth = this.div.jumper.getDivision('info').contentWidth();
 
-		const div = this.div.jumper.getDivision('info');
-		string += (new Array(div.contentWidth() - stringWidth(string))).join(' ');
+		const lines = string.split('\n').map(line => {
+			line += (new Array(divWidth - stringWidth(line))).join(' ');
+			return line;
+		});
 
-		block.content(colorScheme.colorInfoHeader(string));
+		block.content(colorScheme.colorInfoHeader(lines.join('\n')));
 	}
 
 	clearInfo() {
