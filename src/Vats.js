@@ -19,9 +19,7 @@ const DEFAULT_OPTIONS = {
 	useAlternateScreen: true,
 	leaveTopRowAvailable: true, // not applicable when using alternate screen
 	colorScheme: 'default',
-	childDivWrapping: {
-		overflowX: 'scroll'
-	}
+	cdWhenEmpty: false
 };
 
 class Vats extends EventEmitter {

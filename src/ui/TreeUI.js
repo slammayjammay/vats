@@ -4,6 +4,7 @@ const cliTruncate = require('cli-truncate');
 const chalk = require('chalk');
 const TerminalJumper = require('../../../terminal-jumper');
 const BaseUI = require('./BaseUI');
+const ViewSwitcher = require('./ViewSwitcher');
 const ArrayView = require('./subviews/ArrayView');
 const TextView = require('./subviews/TextView');
 const InfoView = require('./subviews/InfoView');
@@ -28,12 +29,8 @@ class TreeUI extends BaseUI {
 		// array of each column view
 		this.columns = [];
 
-		// the last view switches between ArrayView and an alternate view
-		// hold references to each
-		this.currentChildView = this.childArrayView = this.childAltView = null;
-
 		// half-ass attempt to make the "active view" changeable
-		this.activeColumnIdx = this.activeView = null;
+		this.activeColumnIdx = null;
 
 		// more view refs
 		this.headerView = this.infoView = this.linesView = null;
@@ -74,14 +71,20 @@ class TreeUI extends BaseUI {
 		}
 
 		this.columns = (new Array(columnWidths.length)).fill(null).map((_, idx) => {
-			return new ArrayView(this.jumper.getDivision(`column-${idx}`));
+			const div = this.jumper.getDivision(`column-${idx}`);
+			const switcher = new ViewSwitcher(div);
+			switcher.set('array', new ArrayView(div));
+
+			return switcher;
 		});
 
-		this.childArrayView = this.columns[this.columns.length - 1];
-		this.childAltView = new TextView(this.childArrayView.div);
-
 		this.activeColumnIdx = this.getActiveColumnIdx();
-		this.activeView = this.columns[this.activeColumnIdx];
+
+		this.activeColumn = this.columns[this.activeColumnIdx];
+		this.childColumn = this.columns[this.columns.length - 1];
+
+		this.activeColumn.set('text', new TextView(this.activeColumn.div));
+		this.childColumn.set('text', new TextView(this.childColumn.div));
 
 		this.setupArrayViewDisplays();
 
@@ -139,6 +142,7 @@ class TreeUI extends BaseUI {
 	}
 
 	createLinesView() {
+		const activeArrayView = this.activeColumn.get('array');
 		const linesDiv = this.createLinesDiv(this.activeColumnIdx);
 		const view = new ArrayView(linesDiv);
 		view.disable(); // TODO: something less hacky here
@@ -147,7 +151,7 @@ class TreeUI extends BaseUI {
 		view.displayFnMap.set('getItemString', (item, idx, divWidth) => {
 			const availableWidth = divWidth - 2; // padding around div
 			const lineNum = item.toString();
-			const isCursorRow = idx === this.getCursorRow() - this.activeView.getScrollPosY();
+			const isCursorRow = idx === this.getCursorRow() - activeArrayView.getScrollPosY();
 			const strWidth = ~~(Math.log10(lineNum, 10)) + 1;
 			const padding = (new Array(availableWidth - strWidth + 1)).join(' ');
 			const str = isCursorRow ? `${lineNum}${padding}` : `${padding}${lineNum}`;
@@ -181,7 +185,7 @@ class TreeUI extends BaseUI {
 	 */
 	showLineNumbers(bool) {
 		const activeOptions = this.columns[this.activeColumnIdx].div.options;
-		const childOptions = this.columns[this.columns.length - 1].div.options;
+		const childOptions = this.childColumn.div.options;
 		const linesOptions = this.linesView.div.options;
 
 		let hasChanged = false;
@@ -208,7 +212,7 @@ class TreeUI extends BaseUI {
 			return;
 		}
 
-		const [start, end] = this.activeView.getViVisibleIndexBounds();
+		const [start, end] = this.activeColumn.get('array').getViVisibleIndexBounds();
 		const numBlocks = end - start;
 		const cursorRow = this.getCursorRow();
 
@@ -263,7 +267,9 @@ class TreeUI extends BaseUI {
 	}
 
 	setupArrayViewDisplays() {
-		for (const view of this.columns) {
+		for (const column of this.columns) {
+			const view = column.views.get('array');
+
 			view.displayFnMap.set('getItemString', (node, idx, divWidth) => {
 				const isInsideCurrent = node.parent === this.currentNode;
 				const left = node.toListItemString(idx, divWidth);
@@ -314,8 +320,12 @@ class TreeUI extends BaseUI {
 
 	renderString() {
 		let string = this.jumper.renderString();
-		const cursorRow = this.activeView.activeIdx - this.activeView.div.scrollPosY();
-		string += this.activeView.div.jumpToString(null, 0, cursorRow);
+
+		if (this.activeColumn.active === this.activeColumn.get('array')) {
+			const { div } = this.activeColumn.active;
+			const cursorRow = this.activeColumn.get('array').activeIdx - div.scrollPosY();
+			string += div.jumpToString(null, 0, cursorRow);
+		}
 		string += ansiEscapes.cursorHide;
 
 		return string;
@@ -339,8 +349,8 @@ class TreeUI extends BaseUI {
 		this.infoView.setInfo(string, options);
 
 		if (this.infoView.div.height() < oldHeight) {
-			for (const view of this.columns) {
-				this.jumper.setNeedsRender(view.div);
+			for (const { div } of this.columns) {
+				this.jumper.setNeedsRender(div);
 			}
 		}
 
@@ -355,8 +365,8 @@ class TreeUI extends BaseUI {
 		const infoChanged = this.infoView.clearInfo();
 
 		if (infoChanged) {
-			for (const view of this.columns) {
-				this.jumper.setNeedsRender(view.div);
+			for (const { div } of this.columns) {
+				this.jumper.setNeedsRender(div);
 			}
 		}
 
@@ -374,24 +384,38 @@ class TreeUI extends BaseUI {
 	 * TODO: should cd events be cancellable?
 	 */
 	cd(node) {
-		if (!node || node.getChildren().length === 0) {
+		if (node.getChildren().length === 0 && !this.vats.options.cdWhenEmpty) {
 			return false;
 		}
 
-		this.currentNode.scrollPosY = this.activeView.div.scrollPosY();
+		this.currentNode.scrollPosY = this.activeColumn.get('array').div.scrollPosY();
 		this.currentNode = node;
 
 		let [i, curNode] = [this.columns.length - 1, node];
 		i -= 1; // ignore child view -- will be setup on highlight
 		while (i >= 0) {
 			const view = this.columns[i];
-			this._setupArrayView(view, curNode);
+
+			if (curNode && curNode.getChildren().length === 0) {
+				// cdWhenEmpty
+				view.div.reset();
+				view.setActive('text');
+				view.active.setText(colorScheme.colorInfoWarn('empty'));
+				view.active.update();
+			} else {
+				view.div.reset();
+				view.setActive('array');
+				this._setupArrayView(view.active, curNode);
+			}
+
 			curNode = curNode ? curNode.parent : null;
 			i--;
 		}
 
 		this.vats.emitEvent('cd', { item: this.currentNode });
-		this.vats.emitEvent('highlight', { item: this.currentNode.getActiveChild() });
+
+		const activeItem = this.currentNode.getActiveChild();
+		activeItem && this.vats.emitEvent('highlight', { item: activeItem });
 
 		return true;
 	}
@@ -405,20 +429,18 @@ class TreeUI extends BaseUI {
 
 	_setupChildView(childNode) {
 		const hasChildren = childNode.hasChildren();
-		const isArrayView = this.currentChildView === this.childArrayView;
+		const isArrayView = this.childColumn.active === this.childColumn.get('array');
 		const needsSwap = hasChildren !== isArrayView;
 
-		this.currentChildView = hasChildren ? this.childArrayView : this.childAltView;
-
 		if (needsSwap) {
-			this.currentChildView.div.reset();
-			this.columns[this.columns.length - 1] = this.currentChildView;
+			this.childColumn.setActive(isArrayView ? 'text' : 'array');
+			this.childColumn.active.div.reset();
 		}
 
 		if (hasChildren) {
-			this._setupArrayView(this.currentChildView, childNode);
+			this._setupArrayView(this.childColumn.active, childNode);
 		} else {
-			this._setupChildAltView(this.currentChildView, childNode);
+			this._setupChildAltView(this.childColumn.active, childNode);
 		}
 	}
 
@@ -432,26 +454,45 @@ class TreeUI extends BaseUI {
 	 * If no children indices are given, update everything.
 	 */
 	update(node, childIndices) {
-		const view = this.getViewForNode(node);
+		const column = this.getColumnForNode(node);
+		if (!column) {
+			return;
+		}
 
-		if (childIndices !== undefined) {
-			// if childIndices are given, assume that this node's view is an ArrayView
-			view.updateBlocks(childIndices);
-		} else if (view === this.currentChildView) {
+		// don't know how to update non-array views
+		if (column.active !== column.get('array')) {
+			return;
+		}
+
+		const view = column.active;
+
+		if (view.active === this.childColumn.active) {
 			this._setupChildView(node);
+		} else if (childIndices !== undefined) {
+			view.updateBlocks(childIndices);
 		} else {
+			node.activeIdx = Math.min(node.activeIdx, node.getChildren().length - 1);
 			this._setupArrayView(view, node);
 		}
+
+		const activeChild = node.getActiveChild();
+		activeChild && this.vats.emitEvent('highlight', { item: activeChild });
 	}
 
 	/**
 	 * Return {View|null}
 	 */
-	getViewForNode(node) {
+	getColumnForNode(node) {
 		let view = null;
+		let i, curNode;
 
-		const startNode = this.currentNode.getActiveChild();
-		let [i, curNode] = [this.columns.length - 1, startNode];
+		const activeChild = this.currentNode.getActiveChild();
+
+		if (activeChild) {
+			[i, curNode] = [this.columns.length - 1, activeChild];
+		} else {
+			[i, curNode] = [this.activeColumnIdx, this.currentNode];
+		}
 
 		while (i >= 0) {
 			if (curNode === node) {
@@ -529,18 +570,24 @@ class TreeUI extends BaseUI {
 		// TODO: cd does not take into account "count"
 
 		let needsRender = false;
+		let writeString = '';
 
 		if (keyAction === 'vi:cursor-left') {
-			needsRender = this.cd(this.currentNode.parent);
+			if (this.currentNode.parent) {
+				needsRender = this.cd(this.currentNode.parent);
+			}
 		} else if (['vi:cursor-right', 'enter'].includes(keyAction)) {
 			const child = this.currentNode.getActiveChild();
 
-			const didCD = this.cd(child);
+			if (child) {
+				const didCD = this.cd(child);
+				needsRender = didCD;
 
-			if (didCD) {
-				needsRender = this.cd(child);
-			} else {
-				this.vats.emitEvent('select', { item: child });
+				!didCD && this.vats.emitEvent('select', { item: child });
+
+				if (didCD && !child.hasChildren()) {
+					writeString += this.linesView.div.eraseString();
+				}
 			}
 		} else if (keyAction.includes('scroll-child-view')) {
 			const dir = /scroll-child-view-(\w+)/.exec(keyAction)[1];
@@ -556,7 +603,11 @@ class TreeUI extends BaseUI {
 		}
 
 		const infoNeedsRender = this.clearInfo();
-		(infoNeedsRender || needsRender) && this.render();
+
+		if (infoNeedsRender || needsRender) {
+			writeString += this.renderString();
+			process.stdout.write(writeString);
+		}
 	}
 
 	onCD({ item }) {
@@ -581,19 +632,27 @@ class TreeUI extends BaseUI {
 	}
 
 	scrollChildView(x, y, isFast) {
-		const magX = x * (isFast ? this.currentChildView.div.width() * 0.5 : 1);
-		const magY = y * (isFast ? this.currentChildView.div.height() * 0.5 : 1);
+		const magX = x * (isFast ? this.childColumn.active.div.width() * 0.5 : 1);
+		const magY = y * (isFast ? this.childColumn.active.div.height() * 0.5 : 1);
 
-		x !== 0 && this.currentChildView.div.scrollRight(magX);
-		y !== 0 && this.currentChildView.div.scrollDown(magY);
+		x !== 0 && this.childColumn.active.div.scrollRight(magX);
+		y !== 0 && this.childColumn.active.div.scrollDown(magY);
+	}
+
+	handleViKeybinding() {
+		if (this.activeColumn.active !== this.activeColumn.get('array')) {
+			return;
+		}
+
+		return super.handleViKeybinding(...arguments);
 	}
 
 	getViPageHeight() {
-		return this.activeView.getViPageHeight();
+		return this.activeColumn.get('array').getViPageHeight();
 	}
 
 	getViVisibleIndexBounds() {
-		return this.activeView.getViVisibleIndexBounds();
+		return this.activeColumn.get('array').getViVisibleIndexBounds();
 	}
 
 	getCursorRow() {
@@ -612,15 +671,16 @@ class TreeUI extends BaseUI {
 		}
 
 		if (cursorRowChanged) {
-			this.vats.emitEvent('highlight', { item: this.currentNode.getActiveChild() });
+			const activeChild = this.currentNode.getActiveChild();
+			activeChild && this.vats.emitEvent('highlight', { item: activeChild });
 		}
 
 		return cursorRowChanged || scrollPosChanged;
 	}
 
 	setCursorRow(idx) {
-		if (this.activeView.setActiveBlock(idx)) {
-			this.currentNode.activeIdx = this.activeView.activeIdx;
+		if (this.activeColumn.get('array').setActiveBlock(idx)) {
+			this.currentNode.activeIdx = this.activeColumn.get('array').activeIdx;
 			return true;
 		}
 
@@ -628,8 +688,8 @@ class TreeUI extends BaseUI {
 	}
 
 	setScrollPosY(scrollPosY) {
-		const old = this.activeView.div.scrollPosY();
-		this.activeView.setScrollPosY(scrollPosY);
+		const old = this.activeColumn.get('array').div.scrollPosY();
+		this.activeColumn.get('array').setScrollPosY(scrollPosY);
 
 		return scrollPosY !== old;
 	}
