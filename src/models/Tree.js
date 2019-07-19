@@ -22,6 +22,17 @@ class Tree {
 		this.children.splice(idx, 1);
 	}
 
+	replaceChild(nodeOrIdx, newNode) {
+		const idx = (nodeOrIdx instanceof Tree) ? this.children.indexOf(nodeOrIdx) : nodeOrIdx;
+		if (idx < 0) {
+			return;
+		}
+
+		this.children[idx].parent = null;
+		this.children[idx] = newNode;
+		newNode.parent = this;
+	}
+
 	getChild(idx) {
 		return this.getChildren()[idx];
 	}
