@@ -73,7 +73,9 @@ class TreeUI extends BaseUI {
 		this.columns = (new Array(columnWidths.length)).fill(null).map((_, idx) => {
 			const div = this.jumper.getDivision(`column-${idx}`);
 			const switcher = new ViewSwitcher(div);
+
 			switcher.set('array', new ArrayView(div));
+			switcher.setActive('array');
 
 			return switcher;
 		});
@@ -83,7 +85,6 @@ class TreeUI extends BaseUI {
 		this.activeColumn = this.columns[this.activeColumnIdx];
 		this.childColumn = this.columns[this.columns.length - 1];
 
-		this.activeColumn.set('text', new TextView(this.activeColumn.div));
 		this.childColumn.set('text', new TextView(this.childColumn.div));
 
 		this.setupArrayViewDisplays();
@@ -384,7 +385,9 @@ class TreeUI extends BaseUI {
 	 * TODO: should cd events be cancellable?
 	 */
 	cd(node) {
-		if (node.getChildren().length === 0 && !this.vats.options.cdWhenEmpty) {
+		const isEmpty = node.getChildren().length === 0;
+
+		if (isEmpty && !this.vats.options.cdWhenEmpty) {
 			return false;
 		}
 
@@ -392,24 +395,15 @@ class TreeUI extends BaseUI {
 		this.currentNode = node;
 
 		let [i, curNode] = [this.columns.length - 1, node];
-		i -= 1; // ignore child view -- will be setup on highlight
+		i -= 1; // ignore child column -- will be setup on highlight
 		while (i >= 0) {
-			const view = this.columns[i];
-
-			if (curNode && curNode.getChildren().length === 0) {
-				// cdWhenEmpty
-				view.div.reset();
-				view.setActive('text');
-				view.active.setText(colorScheme.colorInfoWarn('empty'));
-				view.active.update();
-			} else {
-				view.div.reset();
-				view.setActive('array');
-				this._setupArrayView(view.active, curNode);
-			}
-
+			this._setupColumn(this.columns[i], curNode);
 			curNode = curNode ? curNode.parent : null;
 			i--;
+		}
+
+		if (isEmpty) {
+			this.childColumn.active.div.reset();
 		}
 
 		this.vats.emitEvent('cd', { item: this.currentNode });
@@ -420,34 +414,40 @@ class TreeUI extends BaseUI {
 		return true;
 	}
 
-	_setupArrayView(view, node) {
-		view.setArray(node ? node.getChildren() : []);
-		view.setActiveIdx(node ? node.activeIdx : 0);
-		view.syncBlocks();
-		view.setScrollPosY(node ? node.scrollPosY : 0);
+	_setupColumn(column, node) {
+		if (!node) {
+			column.active.div.reset();
+			return;
+		}
+
+		if (node.getChildren().length === 0) {
+			if (!column.has('text')) {
+				column.set('text', new TextView(column.active.div))
+			}
+
+			column.setActive('text');
+
+			const text = (() => {
+				if (column === this.childColumn) {
+					return node.toString(node.parent.activeIdx, column.active.div.width());
+				} else {
+					return colorScheme.colorInfoWarn('empty');
+				}
+			})();
+
+			column.active.setText(text);
+			column.active.update();
+		} else {
+			column.setActive('array');
+			column.active.setArray(node.getChildren());
+			column.active.setActiveIdx(node.activeIdx);
+			column.active.syncBlocks();
+			column.active.setScrollPosY(node.scrollPosY);
+		}
 	}
 
 	_setupChildView(childNode) {
-		const hasChildren = childNode.hasChildren();
-		const isArrayView = this.childColumn.active === this.childColumn.get('array');
-		const needsSwap = hasChildren !== isArrayView;
-
-		if (needsSwap) {
-			this.childColumn.setActive(isArrayView ? 'text' : 'array');
-			this.childColumn.active.div.reset();
-		}
-
-		if (hasChildren) {
-			this._setupArrayView(this.childColumn.active, childNode);
-		} else {
-			this._setupChildAltView(this.childColumn.active, childNode);
-		}
-	}
-
-	_setupChildAltView(view, node) {
-		const idx = node.parent && node.parent.activeIdx;
-		view.setText(node.toString(idx, view.div.width()));
-		view.update();
+		this._setupColumn(this.childColumn, childNode);
 	}
 
 	/**
@@ -459,20 +459,16 @@ class TreeUI extends BaseUI {
 			return;
 		}
 
-		// don't know how to update non-array views
-		if (column.active !== column.get('array')) {
-			return;
-		}
-
-		const view = column.active;
-
-		if (view.active === this.childColumn.active) {
-			this._setupChildView(node);
-		} else if (childIndices !== undefined) {
-			view.updateBlocks(childIndices);
+		if (column.active === column.get('array') && childIndices !== undefined) {
+			column.active.updateBlocks(childIndices);
 		} else {
-			node.activeIdx = Math.min(node.activeIdx, node.getChildren().length - 1);
-			this._setupArrayView(view, node);
+			const childrenLength = node.getChildren().length;
+			node.activeIdx = Math.min(node.activeIdx, childrenLength - 1);
+			this._setupColumn(column, node);
+
+			if (node === this.currentNode && childrenLength === 0) {
+				this.childColumn.active.div.reset();
+			}
 		}
 
 		const activeChild = node.getActiveChild();
