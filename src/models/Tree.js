@@ -121,25 +121,9 @@ class Tree {
 	 * @param {number} [divWidth] - the available width of the div.
 	 * @return {string}
 	 */
-	toString(idx, divWidth) {
+	toContentString(idx, divWidth) {
 		return `Showing content for node "${this.data.name}"`;
 	}
-
-	/**
-	 * @param {object} context
-	 * @prop {string} context.id - the id of the column the node is in.
-	 * @prop {number} context.width - the available width of the column.
-	 * @return {string|Array<string>}
-	 */
-	// toListItemString(context) {
-	// 	const tuple = [this.name(), null];
-
-	// 	if (context.id === 'current' && this.hasChildren()) {
-	// 		tuple[1] = '' + this.getChildren().length;
-	// 	}
-
-	// 	return tuple;
-	// }
 
 	/**
 	 * @param {string} string - the search string.

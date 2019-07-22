@@ -151,7 +151,7 @@ class TreeUI extends BaseUI {
 		// padding
 		view.displayFnMap.set('getItemString', (item, idx, divWidth) => {
 			const availableWidth = divWidth - 2; // padding around div
-			const lineNum = item.toString();
+			const lineNum = String(item);
 			const isCursorRow = idx === this.getCursorRow() - activeArrayView.getScrollPosY();
 			const strWidth = ~~(Math.log10(lineNum, 10)) + 1;
 			const padding = (new Array(availableWidth - strWidth + 1)).join(' ');
@@ -427,7 +427,7 @@ class TreeUI extends BaseUI {
 
 			const text = (() => {
 				if (column === this.childColumn) {
-					return node.toString(node.parent.activeIdx, column.active.div.width());
+					return node.toContentString(node.parent.activeIdx, column.active.div.width());
 				} else {
 					return colorScheme.colorInfoWarn('empty');
 				}
