@@ -168,13 +168,11 @@ class TreeUI extends BaseUI {
 	}
 
 	createLinesDiv(activeColumnIdx) {
-		const linesWidth = '5';
-
 		return this.jumper.addDivision({
 			id: 'lines',
 			top: 'header',
 			left: `column-${activeColumnIdx - 1}`,
-			width: linesWidth,
+			width: '5',
 			overflowX: 'scroll',
 			renderOrder: 1
 		});
@@ -446,10 +444,6 @@ class TreeUI extends BaseUI {
 		}
 	}
 
-	_setupChildView(childNode) {
-		this._setupColumn(this.childColumn, childNode);
-	}
-
 	/**
 	 * If no children indices are given, update everything.
 	 */
@@ -563,17 +557,42 @@ class TreeUI extends BaseUI {
 			preventDefault();
 		}
 
-		// TODO: cd does not take into account "count"
-
 		let needsRender = false;
 		let writeString = '';
 
 		if (keyAction === 'vi:cursor-left') {
-			if (this.currentNode.parent) {
-				needsRender = this.cd(this.currentNode.parent);
+			const parentNode = (() => {
+				let curNode = this.currentNode;
+
+				for (let i = 0; i < count; i++) {
+					if (!curNode.parent) {
+						break;
+					} else {
+						curNode = curNode.parent;
+					}
+				}
+
+				return curNode;
+			})();
+
+			if (parentNode) {
+				needsRender = this.cd(parentNode);
 			}
 		} else if (['vi:cursor-right', 'enter'].includes(keyAction)) {
-			const child = this.currentNode.getActiveChild();
+			const child = (() => {
+				let curNode = this.currentNode;
+
+				for (let i = 0; i < count; i++) {
+					const activeChild = curNode.getActiveChild();
+					if (activeChild) {
+						curNode = activeChild;
+					} else {
+						break;
+					}
+				}
+
+				return curNode;
+			})();
 
 			if (child) {
 				const didCD = this.cd(child);
@@ -623,7 +642,7 @@ class TreeUI extends BaseUI {
 	}
 
 	onHighlight({ item }) {
-		this._setupChildView(item);
+		this._setupColumn(this.childColumn, item);
 		this.syncLineNumbersWithActiveColumn();
 	}
 
