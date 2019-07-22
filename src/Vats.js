@@ -62,7 +62,6 @@ class Vats extends EventEmitter {
 		this.emitEvent('keypress', { char, key });
 	}
 
-	// TODO: return whether a change was made
 	setColorScheme(scheme) {
 		this.colorScheme.use(scheme);
 	}
@@ -85,26 +84,20 @@ class Vats extends EventEmitter {
 	}
 
 	/**
-	 * All events will be emitted via this method.
+	 * All events should be emitted via this method.
 	 *
 	 * Some events are cancellable by calling Event#preventDefault(). Unless the
 	 * event is prevented, default behavior will be called for that event via its
 	 * own #_defaultBehaviorForEVENT() method.
 	 *
-	 * List of events emitted:
-	 * - "start" -- when the program begins.
-	 * - "keypress" -- when the user enters a key.
-	 * - "cd" -- when the currentNode changes.
-	 * - "highlight" -- when a new node is highlighted with the cursor.
-	 * - "select" -- when a new node is selected with the cursor.
+	 * List of events emitted (not including UI events):
 	 * - "command" -- when a command or input is entered via CommandMode.
-	 * - "scroll" -- when the 'current' division scrolls.
-	 *
-	 * All events are emitted before the next render occurs. Hmm...
-	 * TODO: emit with context data
+	 * - "keypress" -- when the user enters a key.
+	 * - "keybinding" -- a recognized keybinding.
+	 * - "quit" -- when the program ends.
 	 */
 	emitEvent(eventName, data = {}) {
-		const event = new Event(eventName, Object.assign({ vats: this }, data));
+		const event = new Event(eventName, { vats: this, ...data });
 
 		this.emit(eventName, event);
 
@@ -155,7 +148,8 @@ class Vats extends EventEmitter {
 	_defaultBehaviorForKeypress({ char, key }) {
 		// ctrl+c
 		if (key.sequence === '\u0003') {
-			return this.quit();
+			this.quit();
+			return;
 		}
 
 		const keymapData = this.keymapper.handleKey({ char, key });
@@ -271,13 +265,19 @@ class Vats extends EventEmitter {
 
 	destroy() {
 		this.ui.destroy();
-		this.commandMode.destroy();
-		this.viCursorNavigation.destroy();
+
+		const destroyables = ['colorScheme', 'keymapper', 'commandMode', 'viCursorNavigation', 'searcher'];
+		for (const instanceKey of destroyables) {
+			this[instanceKey].destroy();
+			this[instanceKey] = null;
+		}
 
 		this.options = this._count = this._lastChar = null;
 		this._stdinListeners = null;
 
 		process.stdin.removeListener('keypress', this._onKeypress);
+
+		this.removeAllListeners();
 	}
 
 	exit() {
@@ -291,8 +291,12 @@ class Vats extends EventEmitter {
 			this.exitAlternateScreen();
 		}
 
+		process.stdin.setRawMode(false);
+		process.stdin.pause();
+
+		this.emitEvent('close');
+
 		this.destroy();
-		process.exit();
 	}
 
 	_catchError(e) {

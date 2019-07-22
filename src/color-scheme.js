@@ -55,6 +55,18 @@ class ColorScheme {
 
 		return this.map.get(scheme).get(fnName);
 	}
+
+	destroy() {
+		if (this.current) {
+			for (const [fnName, fn] of this.map.get(this.current).entries()) {
+				this[fnName] = null;
+			}
+		}
+
+		this.current = null;
+		this.map.clear();
+		this.map = null;
+	}
 }
 
 module.exports = new ColorScheme();

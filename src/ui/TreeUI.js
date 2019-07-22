@@ -721,6 +721,8 @@ class TreeUI extends BaseUI {
 		super.quit(...arguments);
 		process.stdout.write(this.jumper.eraseString() + ansiEscapes.cursorShow);
 	}
+
+	// TODO: destroy
 }
 
 module.exports = TreeUI;
