@@ -18,8 +18,7 @@ const DEFAULT_OPTIONS = {
 	debug: false,
 	useAlternateScreen: true,
 	leaveTopRowAvailable: true, // not applicable when using alternate screen
-	colorScheme: 'default',
-	cdWhenEmpty: false
+	colorScheme: 'default'
 };
 
 class Vats extends EventEmitter {
@@ -211,7 +210,7 @@ class Vats extends EventEmitter {
 
 	async prompt(prompt) {
 		const output = await this.enterCommandMode({ prompt });
-		return output ? output.commandString : '';
+		return output ? output.commandString : null;
 	}
 
 	/**
