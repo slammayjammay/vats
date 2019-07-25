@@ -115,11 +115,13 @@ class TreeUI extends BaseUI {
 		colorScheme.use('tree');
 	}
 
+	// TODO: this don't work
 	getActiveColumnIdx() {
 		return Math.max(0, this.columns.length - 2);
 	}
 
 	getColumnWidths() {
+		// "-1" because each column is separated a bit
 		return ['15%', '40% - 1', '45% - 1'];
 	}
 
@@ -198,8 +200,10 @@ class TreeUI extends BaseUI {
 			this.linesView.disable();
 			const columnWidths = this.getColumnWidths();
 			childOptions.width = columnWidths[columnWidths.length - 1];
-			const leftId = this.columns[this.activeColumnIdx - 1].div.options.id;
-			activeOptions.left = `{${leftId}} + 1`;
+			activeOptions.left = this.activeColumnIdx - 1 < 0 ?
+				'0' :
+				`{${this.columns[this.activeColumnIdx - 1].div.options.id}} + 1`;
+
 			hasChanged = true;
 		}
 
@@ -207,11 +211,13 @@ class TreeUI extends BaseUI {
 	}
 
 	syncLineNumbersWithActiveColumn() {
-		if (!this.linesView.isEnabled) {
+		if (this.activeColumn.active !== this.activeColumn.get('array')) {
+			this.linesView.div.reset();
+			this._lineNumCache = [];
 			return;
 		}
 
-		const [start, end] = this.activeColumn.get('array').getViVisibleIndexBounds();
+		const [start, end] = this.activeColumn.active.getViVisibleIndexBounds();
 		const numBlocks = end - start;
 		const cursorRow = this.getCursorRow();
 
@@ -272,7 +278,7 @@ class TreeUI extends BaseUI {
 			view.displayFnMap.set('getItemString', (node, idx, divWidth) => {
 				const isInsideCurrent = node.parent === this.currentNode;
 				const left = node.toListItemString(idx, divWidth);
-				const right = `${isInsideCurrent && node.getChildren().length || ''}`;
+				const right = isInsideCurrent && node.hasChildren() ? `${node.getChildren().length}` : '';
 				return this.formatListItemString(left, right, divWidth);
 			});
 
@@ -383,9 +389,9 @@ class TreeUI extends BaseUI {
 	 * TODO: should cd events be cancellable?
 	 */
 	cd(node) {
-		const isEmpty = node.getChildren().length === 0;
+		const hasChildren = node.hasChildren();
 
-		if (isEmpty && !this.vats.options.cdWhenEmpty) {
+		if (!hasChildren) {
 			return false;
 		}
 
@@ -400,7 +406,7 @@ class TreeUI extends BaseUI {
 			i--;
 		}
 
-		if (isEmpty) {
+		if (hasChildren) {
 			this.childColumn.active.div.reset();
 		}
 
@@ -415,10 +421,7 @@ class TreeUI extends BaseUI {
 	_setupColumn(column, node) {
 		if (!node) {
 			column.active.div.reset();
-			return;
-		}
-
-		if (node.getChildren().length === 0) {
+		} else if (node.getChildren().length === 0) {
 			if (!column.has('text')) {
 				column.set('text', new TextView(column.active.div))
 			}
@@ -442,6 +445,10 @@ class TreeUI extends BaseUI {
 			column.active.syncBlocks();
 			column.active.setScrollPosY(node.scrollPosY);
 		}
+
+		if (this.linesView.isEnabled) {
+			this.syncLineNumbersWithActiveColumn();
+		}
 	}
 
 	/**
@@ -456,17 +463,10 @@ class TreeUI extends BaseUI {
 		if (column.active === column.get('array') && childIndices !== undefined) {
 			column.active.updateBlocks(childIndices);
 		} else {
-			const childrenLength = node.getChildren().length;
+			const childrenLength = node.getChildren().length || 1;
 			node.activeIdx = Math.min(node.activeIdx, childrenLength - 1);
 			this._setupColumn(column, node);
-
-			if (node === this.currentNode && childrenLength === 0) {
-				this.childColumn.active.div.reset();
-			}
 		}
-
-		const activeChild = node.getActiveChild();
-		activeChild && this.vats.emitEvent('highlight', { item: activeChild });
 	}
 
 	/**
@@ -597,12 +597,7 @@ class TreeUI extends BaseUI {
 			if (child) {
 				const didCD = this.cd(child);
 				needsRender = didCD;
-
 				!didCD && this.vats.emitEvent('select', { item: child });
-
-				if (didCD && !child.hasChildren()) {
-					writeString += this.linesView.div.eraseString();
-				}
 			}
 		} else if (keyAction.includes('scroll-child-view')) {
 			const dir = /scroll-child-view-(\w+)/.exec(keyAction)[1];
@@ -643,7 +638,6 @@ class TreeUI extends BaseUI {
 
 	onHighlight({ item }) {
 		this._setupColumn(this.childColumn, item);
-		this.syncLineNumbersWithActiveColumn();
 	}
 
 	scrollChildView(x, y, isFast) {

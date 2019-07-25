@@ -74,9 +74,10 @@ class CommandMode {
 
 	_onKeypress(char, key) {
 		const isBackspaceOnEmpty = (key.name === 'backspace' && this.rl.line.length === 0);
+		const escaped = key.name === 'escape' || key.sequence === '\u0003';
 
 		// escape
-		if (isBackspaceOnEmpty || key.name === 'escape') {
+		if (isBackspaceOnEmpty || escaped) {
 			this.quit();
 			this.resolve(null);
 			return;
