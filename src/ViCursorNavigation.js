@@ -24,6 +24,7 @@ class ViCursorNavigation {
 			['scroll-half-page-down', 'scrollHalfPageDown'],
 			['scroll-half-page-up', 'scrollHalfPageUp'],
 
+			// TODO: these are all wrong
 			['top-align-page-around-cursor', 'topAlignPageAroundCursor'],
 			['center-align-page-around-cursor', 'centerAlignPageAroundCursor'],
 			['bottom-align-page-around-cursor', 'bottomAlignPageAroundCursor'],

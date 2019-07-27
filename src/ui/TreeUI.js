@@ -451,6 +451,18 @@ class TreeUI extends BaseUI {
 		}
 	}
 
+	getVisibleChildren(node) {
+		const column = this.getColumnForNode(node);
+		if (!column || column.active !== column.get('array')) {
+			return null;
+		}
+
+		const scrollY = column.active.div.scrollPosY();
+		const height = column.active.div.height();
+
+		return node.getChildren().slice(scrollY, scrollY + height);
+	}
+
 	/**
 	 * If no children indices are given, update everything.
 	 */
