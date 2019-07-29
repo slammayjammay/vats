@@ -212,7 +212,8 @@ class TreeUI extends BaseUI {
 
 	syncLineNumbersWithActiveColumn() {
 		if (this.activeColumn.active !== this.activeColumn.get('array')) {
-			this.linesView.div.reset();
+			this.linesView.setArray([]);
+			this.linesView.syncBlocks();
 			this._lineNumCache = [];
 			return;
 		}
@@ -457,7 +458,7 @@ class TreeUI extends BaseUI {
 	getVisibleChildren(node) {
 		const column = this.getColumnForNode(node);
 		if (!column || column.active !== column.get('array')) {
-			return null;
+			return [];
 		}
 
 		const scrollY = column.active.div.scrollPosY();
