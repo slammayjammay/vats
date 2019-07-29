@@ -2,6 +2,7 @@ const stringWidth = require('string-width');
 const BaseSubview = require('./BaseSubview');
 const colorScheme = require('../../color-scheme');
 
+// TODO: Combine this with text view
 class InfoView extends BaseSubview {
 	setInfo(string = '', options = {}) {
 		if (options.warn) {

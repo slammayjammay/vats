@@ -20,14 +20,6 @@ class ArrayView extends BaseSubview {
 		this.array = array;
 	}
 
-	getScrollPosY() {
-		return this.div.scrollPosY();
-	}
-
-	setScrollPosY(scrollPosY) {
-		this.div.scrollY(scrollPosY);
-	}
-
 	/**
 	 * Returns a string representing the given item.
 	 * @param {*} item - The item in the array.
@@ -152,13 +144,25 @@ class ArrayView extends BaseSubview {
 		return false;
 	}
 
+	getScrollPosY() {
+		return this.div.scrollPosY();
+	}
+
+	setScrollPosY(scrollPosY) {
+		this.div.scrollY(scrollPosY);
+	}
+
+	getVisibleHeight() {
+		return Math.min(this.div.height() - 1, this.array.length - 1);
+	}
+
 	getViPageHeight() {
 		return this.array.length - 1;
 	}
 
 	getViVisibleIndexBounds() {
-		const start = this.div.scrollPosY();
-		const visibleHeight = Math.min(this.div.height() - 1, this.array.length - 1);
+		const start = this.getScrollPosY();
+		const visibleHeight = this.getVisibleHeight();
 		return [start, start + visibleHeight];
 	}
 }

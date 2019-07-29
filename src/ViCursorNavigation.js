@@ -137,12 +137,11 @@ class ViCursorNavigation {
 	 * @param {array<number>} visibleIndexBounds - The start and end indices of
 	 * the visible page.
 	 * @param {number} [previousRow] - The previous row location of the cursor.
-	 * @return {number} the scroll position. -1 indicates that the scroll position
-	 * has not changed.
+	 * @return {number} the scroll position.
 	 */
 	getScrollPosition(row, pageHeight, [start, end], previousRow) {
 		if (row >= start && row <= end) {
-			return -1;
+			return start;
 		}
 
 		const windowHeight = end - start;

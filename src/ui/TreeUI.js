@@ -341,6 +341,10 @@ class TreeUI extends BaseUI {
 		this.headerView.update();
 	}
 
+	/**
+	 * options.warn
+	 * options.header
+	 */
 	info(string, options = {}) {
 		string = new String(string);
 
@@ -359,14 +363,15 @@ class TreeUI extends BaseUI {
 			}
 		}
 
-		options.render && this.render();
+		this.schedule('render', () => this.render());
 	}
 
 	warn(string) {
+		// TODO: options argument
 		this.info(string, { warn: true });
 	}
 
-	clearInfo(options = {}) {
+	clearInfo() {
 		const infoChanged = this.infoView.clearInfo();
 
 		if (infoChanged) {
@@ -374,8 +379,6 @@ class TreeUI extends BaseUI {
 				this.jumper.setNeedsRender(div);
 			}
 		}
-
-		options.render && this.render();
 
 		return infoChanged;
 	}
@@ -514,7 +517,7 @@ class TreeUI extends BaseUI {
 	}
 
 	onCommandNotFound({ command }) {
-		this.info(`Command not found: ${command}`, { warn: true, render: true });
+		this.info(`Command not found: ${command}`, { warn: true });
 	}
 
 	onCommand({ argv, fyis }) {
@@ -530,8 +533,8 @@ class TreeUI extends BaseUI {
 				this.getCursorRow()
 			);
 
-			const needsRender = this.setCursorRowAndScrollPosition(newCursorRow, newScrollPosY);
-			needsRender && this.render();
+			const needsRender = this.setViCursor(newCursorRow, newScrollPosY);
+			needsRender && this.schedule('render', () => this.render());
 		} else if (command === 'set') {
 			let bool = null;
 
@@ -548,7 +551,7 @@ class TreeUI extends BaseUI {
 				// TerminalJumper
 				this.jumper.setDirty();
 				this.syncLineNumbersWithActiveColumn();
-				this.render();
+				this.schedule('render', () => this.render());
 			}
 		} else {
 			fyis.set('command-not-found', true);
@@ -559,7 +562,7 @@ class TreeUI extends BaseUI {
 		// clear info if entering command mode through keypress (as opposed to
 		// prompt). this is a yucky way to do this
 		if (char === ':') {
-			this.clearInfo({ render: true });
+			this.clearInfo() && this.render();
 		}
 	}
 
@@ -570,7 +573,6 @@ class TreeUI extends BaseUI {
 		}
 
 		let needsRender = false;
-		let writeString = '';
 
 		if (keyAction === 'vi:cursor-left') {
 			const parentNode = (() => {
@@ -627,13 +629,15 @@ class TreeUI extends BaseUI {
 		const infoNeedsRender = this.clearInfo();
 
 		if (infoNeedsRender || needsRender) {
-			writeString += this.renderString();
-			process.stdout.write(writeString);
+			this.schedule('render', () => this.render());
 		}
 	}
 
 	onCD({ item }) {
 		this.updateHeader(item);
+
+		// not actually needed because cd events are always emitted before render
+		this.schedule('render', () => this.render());
 	}
 
 	updateHeader(item) {
@@ -650,6 +654,10 @@ class TreeUI extends BaseUI {
 
 	onHighlight({ item }) {
 		this._setupColumn(this.childColumn, item);
+
+		// not actually needed because highlight events are always emitted before
+		// render
+		this.schedule('render', () => this.render());
 	}
 
 	scrollChildView(x, y, isFast) {
@@ -680,25 +688,6 @@ class TreeUI extends BaseUI {
 		return this.currentNode.activeIdx;
 	}
 
-	// TODO: this is not dry...
-	setCursorRowAndScrollPosition(cursorRow, scrollPosY) {
-		let cursorRowChanged, scrollPosChanged;
-
-		if (Number.isInteger(cursorRow)) {
-			cursorRowChanged = this.setCursorRow(cursorRow);
-		}
-		if (scrollPosY !== -1 && Number.isInteger(scrollPosY)) {
-			scrollPosChanged = this.setScrollPosY(scrollPosY);
-		}
-
-		if (cursorRowChanged) {
-			const activeChild = this.currentNode.getActiveChild();
-			activeChild && this.vats.emitEvent('highlight', { item: activeChild });
-		}
-
-		return cursorRowChanged || scrollPosChanged;
-	}
-
 	setCursorRow(idx) {
 		if (this.activeColumn.get('array').setActiveBlock(idx)) {
 			this.currentNode.activeIdx = this.activeColumn.get('array').activeIdx;
@@ -708,11 +697,28 @@ class TreeUI extends BaseUI {
 		return false;
 	}
 
+	getScrollPosY() {
+		return this.activeColumn.get('array').div.scrollPosY();
+	}
+
 	setScrollPosY(scrollPosY) {
-		const old = this.activeColumn.get('array').div.scrollPosY();
+		const old = this.getScrollPosY();
 		this.activeColumn.get('array').setScrollPosY(scrollPosY);
 
 		return scrollPosY !== old;
+	}
+
+	setViCursor(cursorRow, scrollPos) {
+		const oldCursorRow = this.getCursorRow();
+
+		const needsRender = super.setViCursor(...arguments);
+
+		if (oldCursorRow !== this.getCursorRow()) {
+			const activeChild = this.currentNode.getActiveChild();
+			activeChild && this.vats.emitEvent('highlight', { item: activeChild });
+		}
+
+		return needsRender;
 	}
 
 	getSearchableItems(query) {

@@ -1,6 +1,8 @@
 class BaseView {
 	constructor() {
 		this.vats = null;
+		this.scheduler = new Map();
+		this._isScheduling = false;
 	}
 
 	/**
@@ -17,6 +19,40 @@ class BaseView {
 	update() {}
 
 	render() {}
+
+	/**
+	 * Stores callbacks that will be executed on setImmediate(). Optionally
+	 * stored under a namespace id.
+	 *
+	 * @param {string} [id]
+	 * @param {function} cb
+	 */
+	schedule(id, cb) {
+		id = id || `schedule-${this.scheduler.size}`;
+
+		// TODO: allow for order/sorting
+		this.scheduler.set(id, cb);
+
+		if (!this._isScheduling) {
+			this._isScheduling = true;
+
+			setImmediate(() => {
+				this._isScheduling = false;
+				this.performSchedule();
+			});
+		}
+	}
+
+	// method? if no callbacks are scheduled, fires immediately. otherwise
+	// schedules it
+
+	performSchedule() {
+		for (const cb of this.scheduler.values()) {
+			cb();
+		}
+
+		this.scheduler.clear();
+	}
 
 	onPagerExit() {
 		if (this.vats.options.useAlternateScreen) {
@@ -41,8 +77,13 @@ class BaseView {
 			keyAction, count, pageHeight, visibleIndexBounds, currentCursorRow
 		);
 
-		const needsRender = this.setCursorRowAndScrollPosition(cursorRow, scrollPosY);
-		needsRender && this.render();
+		const needsRender = this.setViCursor(cursorRow, scrollPosY);
+
+		if (typeof needsRender === 'boolean') {
+			needsRender && this.schedule('render', () => this.render());
+		} else if (cursorRowChanged || scrollPosChanged) {
+			this.schedule('render', () => this.render())
+		}
 	}
 
 	// TODO: render only visible children
@@ -64,17 +105,14 @@ class BaseView {
 
 	setScrollPosY(scrollPosY) {}
 
-	setCursorRowAndScrollPosition(cursorRow, scrollPosY) {
-		let cursorRowChanged, scrollPosChanged;
+	setViCursor(cursorRow, scrollPos) {
+		const oldCursorRow = this.getCursorRow();
+		const oldScrollPos = this.getScrollPosY();
 
-		if (Number.isInteger(cursorRow)) {
-			cursorRowChanged = this.setCursorRow(cursorRow);
-		}
-		if (scrollPosY !== -1 && Number.isInteger(scrollPosY)) {
-			scrollPosChanged = this.setScrollPosY(scrollPosY);
-		}
+		const cursorRowChanged = cursorRow !== oldCursorRow && this.setCursorRow(cursorRow);
+		const scrollPosChanged = scrollPos !== oldScrollPos && this.setScrollPosY(scrollPos);
 
-		return cursorRowChanged || scrollPosChanged;
+		return (cursorRowChanged || scrollPosChanged);
 	}
 
 	search(query, count) {
@@ -101,8 +139,8 @@ class BaseView {
 			this.getCursorRow()
 		);
 
-		const needsRender = this.setCursorRowAndScrollPosition(foundIdx, newScrollPosY);
-		needsRender && this.render();
+		const needsRender = this.setViCursor(foundIdx, newScrollPosY);
+		needsRender && this.schedule('render', () => this.render());
 	}
 
 	getSearchableItems(query) {
