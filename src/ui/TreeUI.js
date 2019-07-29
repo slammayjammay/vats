@@ -410,10 +410,6 @@ class TreeUI extends BaseUI {
 			i--;
 		}
 
-		if (hasChildren) {
-			this.childColumn.active.div.reset();
-		}
-
 		this.vats.emitEvent('cd', { item: this.currentNode });
 
 		const activeItem = this.currentNode.getActiveChild();
@@ -424,8 +420,10 @@ class TreeUI extends BaseUI {
 
 	_setupColumn(column, node) {
 		if (!node) {
+			// if no node given, show column as empty
 			column.active.div.reset();
 		} else if (node.getChildren().length === 0) {
+			// if no children, show column as empty
 			if (!column.has('text')) {
 				column.set('text', new TextView(column.active.div))
 			}
@@ -442,7 +440,12 @@ class TreeUI extends BaseUI {
 
 			column.active.setText(text);
 			column.active.update();
+
+			if (node === this.currentNode) {
+				this._setupColumn(this.childColumn);
+			}
 		} else {
+			// show children
 			column.setActive('array');
 			column.active.setArray(node.getChildren());
 			column.active.setActiveIdx(node.activeIdx);
