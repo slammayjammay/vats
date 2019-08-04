@@ -208,8 +208,8 @@ class Vats extends EventEmitter {
 		spawnSync('tput rmcup', { shell: true, stdio: 'inherit' });
 	}
 
-	async prompt(prompt) {
-		const output = await this.enterCommandMode({ prompt });
+	async prompt(prompt, options = { saveToHistory: false }) {
+		const output = await this.enterCommandMode({ prompt, ...options });
 		return output ? output.commandString : null;
 	}
 

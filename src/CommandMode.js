@@ -4,18 +4,17 @@ const stringArgv = require('string-argv');
 
 const RUN_OPTION_DEFAULTS = {
 	prompt: ':',
-	command: ''
+	command: '',
+	saveToHistory: true
 };
 
-/**
- * TODO: history!
- */
 class CommandMode {
 	constructor() {
 		this._onKeypress = this._onKeypress.bind(this);
 
-		this._resolve = null;
 		this._isRunning = false;
+		this._resolve = null;
+		this._options = null;
 
 		this.rl = createInterface({
 			input: process.stdin,
@@ -51,12 +50,12 @@ class CommandMode {
 		}
 		this._isRunning = true;
 
-		options = { ...RUN_OPTION_DEFAULTS, ...options };
+		this._options = { ...RUN_OPTION_DEFAULTS, ...options };
 
 		this.enable();
 
-		this.rl.setPrompt(options.prompt);
-		this.rl.line = options.command;
+		this.rl.setPrompt(this._options.prompt);
+		this.rl.line = this._options.command;
 		this.rl.cursor = this.rl.line.length;
 		this.rl._refreshLine();
 
@@ -104,17 +103,24 @@ class CommandMode {
 	}
 
 	resolve(val) {
-		if (this._resolve) {
-			const resolve = this._resolve;
-			this._resolve = null;
-			resolve(val);
+		if (!this._resolve) {
+			return;
 		}
+
+		if (this._options.saveToHistory && val) {
+			this.rl._addHistory();
+		}
+
+		const resolve = this._resolve;
+		this._resolve = this._options = null;
+		resolve(val);
 	}
 
 	destroy() {
 		process.stdin.removeListener('keypress', this._onKeypress);
 		this.rl && this.rl.close();
-		this._isRunning = this._stdinListeners = this._resolve = this.rl = null;
+		this.rl = null;
+		this._isRunning = this._stdinListeners = this._resolve = this._options = null;
 	}
 }
 
