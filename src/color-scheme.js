@@ -69,4 +69,5 @@ class ColorScheme {
 	}
 }
 
+// TODO: why singleton?
 module.exports = new ColorScheme();

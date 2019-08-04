@@ -26,7 +26,7 @@ class InfoView extends BaseSubview {
 		}
 
 		const block = this.div.jumper[hasBlock ? 'getBlock' : 'addBlock']('info.header', '', 0);
-		const divWidth = this.div.jumper.getDivision('info').contentWidth();
+		const divWidth = this.div.contentWidth();
 
 		const lines = string.split('\n').map(line => {
 			line += (new Array(divWidth - stringWidth(line))).join(' ');
@@ -37,15 +37,12 @@ class InfoView extends BaseSubview {
 	}
 
 	clearInfo() {
-		let hasChanged = false;
-
-		for (const id of ['header', 'info']) {
-			const hasBlock = this.div.hasBlock(id);
-			hasChanged = hasChanged || hasBlock;
-			hasBlock && this.div.removeBlock(id);
+		if (this.div.hasBlock('header') || this.div.hasBlock('info')) {
+			this.div.reset();
+			return true;
 		}
 
-		return hasChanged;
+		return false;
 	}
 }
 

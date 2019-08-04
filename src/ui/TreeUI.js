@@ -359,12 +359,10 @@ class TreeUI extends BaseUI {
 		this.infoView.setInfo(string, options);
 
 		if (this.infoView.div.height() < oldHeight) {
-			for (const { div } of this.columns) {
-				this.jumper.setNeedsRender(div);
+			for (const column of this.columns) {
+				this.jumper.setNeedsRender(column.active.div);
 			}
 		}
-
-		this.schedule('render', () => this.render());
 	}
 
 	warn(string) {
@@ -373,15 +371,15 @@ class TreeUI extends BaseUI {
 	}
 
 	clearInfo() {
-		const infoChanged = this.infoView.clearInfo();
+		const needsRender = this.infoView.clearInfo();
 
-		if (infoChanged) {
-			for (const { div } of this.columns) {
-				this.jumper.setNeedsRender(div);
+		if (needsRender) {
+			for (const column of this.columns) {
+				this.jumper.setNeedsRender(column.active.div);
 			}
 		}
 
-		return infoChanged;
+		return needsRender;
 	}
 
 	/**
@@ -522,6 +520,7 @@ class TreeUI extends BaseUI {
 
 	onCommandNotFound({ command }) {
 		this.info(`Command not found: ${command}`, { warn: true });
+		this.schedule('render', () => this.render());
 	}
 
 	onCommand({ argv, fyis }) {
@@ -639,9 +638,6 @@ class TreeUI extends BaseUI {
 
 	onCD({ item }) {
 		this.updateHeader(item);
-
-		// not actually needed because cd events are always emitted before render
-		this.schedule('render', () => this.render());
 	}
 
 	updateHeader(item) {
@@ -658,10 +654,6 @@ class TreeUI extends BaseUI {
 
 	onHighlight({ item }) {
 		this._setupColumn(this.childColumn, item);
-
-		// not actually needed because highlight events are always emitted before
-		// render
-		this.schedule('render', () => this.render());
 	}
 
 	scrollChildView(x, y, isFast) {
