@@ -175,7 +175,7 @@ class Vats extends EventEmitter {
 	}
 
 	_defaultBehaviorForKeybinding({ keyString, keyAction, count, charsRead }) {
-		if (keyAction.includes('vi:')) {
+		if (keyAction.slice(0, 3) === 'vi:') {
 			this.ui.handleViKeybinding(...arguments);
 		} else if (keyAction === 'search-next' && this._lastSearchQuery) {
 			this.search(this._lastSearchQuery, count * this._lastSearchDir);

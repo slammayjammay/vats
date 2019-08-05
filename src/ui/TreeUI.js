@@ -550,10 +550,10 @@ class TreeUI extends BaseUI {
 			}
 
 			if (bool !== null && this.showLineNumbers(bool)) {
+				bool && this.syncLineNumbersWithActiveColumn();
 				// dynamically added divisions are not handled correctly by
 				// TerminalJumper
 				this.jumper.setDirty();
-				this.syncLineNumbersWithActiveColumn();
 				this.schedule('render', () => this.render());
 			}
 		} else {
