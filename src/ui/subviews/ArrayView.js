@@ -144,14 +144,6 @@ class ArrayView extends BaseSubview {
 		return false;
 	}
 
-	getScrollPosY() {
-		return this.div.scrollPosY();
-	}
-
-	setScrollPosY(scrollPosY) {
-		this.div.scrollY(scrollPosY);
-	}
-
 	getVisibleHeight() {
 		return Math.min(this.div.height() - 1, this.array.length - 1);
 	}

@@ -18,6 +18,14 @@ class BaseSubview {
 		this.div.jumper.addDivision(this.div);
 		this.isEnabled = true;
 	}
+
+	getScrollPosY() {
+		return this.div.scrollPosY();
+	}
+
+	setScrollPosY(scrollPosY) {
+		this.div.scrollY(scrollPosY);
+	}
 }
 
 module.exports = BaseSubview;

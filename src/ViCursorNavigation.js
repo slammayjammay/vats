@@ -40,6 +40,9 @@ class ViCursorNavigation {
 	 * @param {number} cursorRow
 	 * @return {array<number>} A tuple, containing 1) the new row and 2) the new
 	 * scroll position.
+	 *
+	 * TODO: need to account for both x and y directions of scroll and cursor
+	 * position.
 	 */
 	handleKeybinding(keyAction, count, pageHeight, visibleIndexBounds, cursorRow) {
 		const action = keyAction.replace('vi:', '');

@@ -51,7 +51,7 @@ class TreeUI extends BaseUI {
 		this.vats.on('highlight', (...args) => this.onHighlight(...args));
 
 		this.cd(this.currentNode);
-		this.render();
+		this.schedule('render', () => this.render());
 	}
 
 	createUI() {
@@ -429,7 +429,7 @@ class TreeUI extends BaseUI {
 			column.setActive('text');
 
 			const text = (() => {
-				if (column === this.childColumn) {
+				if (column === this.childColumn && !node.hasChildren()) {
 					return node.toContentString(node.parent.activeIdx, column.active.div.width());
 				} else {
 					return colorScheme.colorInfoWarn('empty');
@@ -438,10 +438,6 @@ class TreeUI extends BaseUI {
 
 			column.active.setText(text);
 			column.active.update();
-
-			if (node === this.currentNode) {
-				this._setupColumn(this.childColumn);
-			}
 		} else {
 			// show children
 			column.setActive('array');
@@ -449,6 +445,10 @@ class TreeUI extends BaseUI {
 			column.active.setActiveIdx(node.activeIdx);
 			column.active.syncBlocks();
 			column.active.setScrollPosY(node.scrollPosY);
+		}
+
+		if (node === this.currentNode && this.currentNode.getChildren().length === 0) {
+			this._setupColumn(this.childColumn);
 		}
 
 		if (this.linesView.isEnabled) {
@@ -462,10 +462,8 @@ class TreeUI extends BaseUI {
 			return [];
 		}
 
-		const scrollY = column.active.div.scrollPosY();
-		const height = column.active.div.height();
-
-		return node.getChildren().slice(scrollY, scrollY + height);
+		const [start, end] = this.getViVisibleIndexBounds();
+		return node.getChildren().slice(start, end);
 	}
 
 	/**
@@ -482,6 +480,7 @@ class TreeUI extends BaseUI {
 		} else {
 			const childrenLength = node.getChildren().length || 1;
 			node.activeIdx = Math.min(node.activeIdx, childrenLength - 1);
+			node.scrollPosY = column.active.getScrollPosY();
 			this._setupColumn(column, node);
 		}
 	}
@@ -704,17 +703,18 @@ class TreeUI extends BaseUI {
 		return scrollPosY !== old;
 	}
 
-	setViCursor(cursorRow, scrollPos) {
-		const oldCursorRow = this.getCursorRow();
+	onCursorRowChange(cursorRow) {
+		const activeChild = this.currentNode.getActiveChild();
+		activeChild && this.vats.emitEvent('highlight', { item: activeChild });
+	}
 
-		const needsRender = super.setViCursor(...arguments);
-
-		if (oldCursorRow !== this.getCursorRow()) {
-			const activeChild = this.currentNode.getActiveChild();
-			activeChild && this.vats.emitEvent('highlight', { item: activeChild });
-		}
-
-		return needsRender;
+	onScrollPositionChange(scrollPos) {
+		this.vats.emitEvent('scroll', {
+			bounds: this.getViVisibleIndexBounds() ,
+			// TODO: sort these guys out
+			item: this.currentNode,
+			column: this.activeColumn
+		});
 	}
 
 	getSearchableItems(query) {

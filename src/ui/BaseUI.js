@@ -94,7 +94,7 @@ class BaseView {
 	getViPageHeight() {}
 
 	/**
-	 * @return {array} - tuple containing start and end indices of visible page
+	 * @return {array<number>} - tuple containing start and end indices of visible page
 	 * content.
 	 */
 	getViVisibleIndexBounds() {}
@@ -103,17 +103,26 @@ class BaseView {
 
 	setCursorRow(index) {}
 
+	getScrollPosY() {}
+
 	setScrollPosY(scrollPosY) {}
 
 	setViCursor(cursorRow, scrollPos) {
 		const oldCursorRow = this.getCursorRow();
 		const oldScrollPos = this.getScrollPosY();
 
-		const cursorRowChanged = cursorRow !== oldCursorRow && this.setCursorRow(cursorRow);
-		const scrollPosChanged = scrollPos !== oldScrollPos && this.setScrollPosY(scrollPos);
+		const cursorChanged = cursorRow !== oldCursorRow && this.setCursorRow(cursorRow);
+		const scrollChanged = scrollPos !== oldScrollPos && this.setScrollPosY(scrollPos);
 
-		return (cursorRowChanged || scrollPosChanged);
+		cursorChanged && this.onCursorRowChange(cursorRow);
+		scrollChanged && this.onScrollPositionChange(scrollPos);
+
+		return (cursorChanged || scrollChanged);
 	}
+
+	onCursorRowChange(cursorRow) {}
+
+	onScrollPositionChange(scrollPos) {}
 
 	search(query, count) {
 		const searchableItems = this.getSearchableItems(query);
