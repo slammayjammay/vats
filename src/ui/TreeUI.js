@@ -728,7 +728,7 @@ class TreeUI extends BaseUI {
 	}
 
 	beforeSigStop() {
-		process.stdout.write(ansiEscapes.cursorShow);
+		process.stdout.write(this.jumper.eraseString() + ansiEscapes.cursorShow);
 	}
 
 	onSigCont() {
