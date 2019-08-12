@@ -59,16 +59,16 @@ class TreeUI extends BaseUI {
 			debug: this.vats.options.debug
 		});
 
-		// TODO: ick
-		this.jumper.removeDivision('default-division');
-
 		// setup columns
 		const columnWidths = this.getColumnWidths();
 
+		const divs = [];
 		for (const [id, options] of Object.entries(this.getJumperDivisions(columnWidths))) {
 			options.id = id;
-			this.jumper.addDivision(options);
+			divs.push(options);
 		}
+
+		this.jumper.addDivision(divs);
 
 		this.columns = (new Array(columnWidths.length)).fill(null).map((_, idx) => {
 			const div = this.jumper.getDivision(`column-${idx}`);
@@ -133,10 +133,9 @@ class TreeUI extends BaseUI {
 
 		for (const [idx, columnWidth] of columnWidths.entries()) {
 			options[`column-${idx}`] = {
+				top: 'header',
 				left: idx === 0 ? 0 : `{column-${idx - 1}} + 1`,
-				bottom: 0,
 				width: columnWidth,
-				height: '100% - 1',
 				overflowX: 'scroll'
 			};
 		}
@@ -192,12 +191,11 @@ class TreeUI extends BaseUI {
 		let hasChanged = false;
 
 		if (bool && !this.linesView.isEnabled) {
-			this.linesView.enable();
 			activeOptions.left = 'lines';
 			childOptions.width = `${childOptions.width} - ${linesOptions.width}`;
 			hasChanged = true;
+			this.linesView.enable();
 		} else if (!bool && this.linesView.isEnabled) {
-			this.linesView.disable();
 			const columnWidths = this.getColumnWidths();
 			childOptions.width = columnWidths[columnWidths.length - 1];
 			activeOptions.left = this.activeColumnIdx - 1 < 0 ?
@@ -205,6 +203,7 @@ class TreeUI extends BaseUI {
 				`{${this.columns[this.activeColumnIdx - 1].div.options.id}} + 1`;
 
 			hasChanged = true;
+			this.linesView.disable();
 		}
 
 		return hasChanged;
@@ -550,9 +549,6 @@ class TreeUI extends BaseUI {
 
 			if (bool !== null && this.showLineNumbers(bool)) {
 				bool && this.syncLineNumbersWithActiveColumn();
-				// dynamically added divisions are not handled correctly by
-				// TerminalJumper
-				this.jumper.setDirty();
 				this.schedule('render', () => this.render());
 			}
 		} else {
