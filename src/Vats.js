@@ -38,6 +38,8 @@ class Vats extends EventEmitter {
 		}
 
 		this._onKeypress = this._onKeypress.bind(this);
+		this._onSigInt = this._onSigInt.bind(this);
+		this._onSigCont = this._onSigCont.bind(this);
 
 		this._stdinListeners = null;
 		this._lastSearchQuery = null;
@@ -74,6 +76,9 @@ class Vats extends EventEmitter {
 		process.stdin.setRawMode(true);
 		emitKeypressEvents(process.stdin);
 		process.stdin.addListener('keypress', this._onKeypress);
+
+		process.on('SIGINT', this._onSigInt);
+		process.on('SIGCONT', this._onSigCont);
 
 		this.ui.init(this, this.options);
 	}
@@ -145,11 +150,20 @@ class Vats extends EventEmitter {
 	}
 
 	_defaultBehaviorForKeypress({ char, key }) {
-		// ctrl+c
+		// ctrl+c -- SIGINT
 		if (key.sequence === '\u0003') {
-			this.quit();
+			process.kill(process.pid, 'SIGINT');
 			return;
 		}
+
+		// ctrl+z -- SIGSTOP
+		if (key.sequence === '\u001a') {
+			this._beforeSigStop();
+			process.kill(process.pid, 'SIGSTOP');
+			return;
+		}
+
+		// TODO: other signals?
 
 		const keymapData = this.keymapper.handleKey({ char, key });
 
@@ -170,7 +184,7 @@ class Vats extends EventEmitter {
 				}
 
 				this.emitEvent('command', commandData);
-			}).catch(e => this._catchError(e));
+			}).catch(e => this.pager(e));
 		}
 	}
 
@@ -298,8 +312,34 @@ class Vats extends EventEmitter {
 		this.destroy();
 	}
 
-	_catchError(e) {
-		this.pager(e.stack);
+	_onSigInt() {
+		this.emitEvent('SIGINT');
+
+		if (this.options.useAlternateScreen) {
+			this.exitAlternateScreen();
+		}
+
+		this.quit();
+	}
+
+	_onSigCont() {
+		process.stdin.setRawMode(true);
+
+		if (this.options.useAlternateScreen) {
+			this.enterAlternateScreen();
+		}
+
+		this.emitEvent('SIGCONT');
+	}
+
+	_beforeSigStop() {
+		process.stdin.setRawMode(false);
+
+		this.emitEvent('before-sig-stop');
+
+		if (this.options.useAlternateScreen) {
+			this.exitAlternateScreen();
+		}
 	}
 }
 

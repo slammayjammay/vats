@@ -14,6 +14,7 @@ class BaseView {
 		this.vats = vats;
 
 		this.vats.on('pager:exit', (...args) => this.onPagerExit(...args));
+		this.vats.on('SIGCONT', (...args) => this.onSigCont(...args));
 	}
 
 	update() {}
@@ -167,6 +168,10 @@ class BaseView {
 	destroy() {
 		this.vats = null;
 		this.options = null;
+	}
+
+	onSigCont() {
+		this.render();
 	}
 }
 

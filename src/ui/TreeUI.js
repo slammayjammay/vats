@@ -49,6 +49,7 @@ class TreeUI extends BaseUI {
 		this.vats.on('keybinding', (...args) => this.onKeybinding(...args));
 		this.vats.on('cd', (...args) => this.onCD(...args));
 		this.vats.on('highlight', (...args) => this.onHighlight(...args));
+		this.vats.on('before-sig-stop', (...args) => this.beforeSigStop(...args));
 
 		this.cd(this.currentNode);
 		this.schedule('render', () => this.render());
@@ -724,6 +725,14 @@ class TreeUI extends BaseUI {
 	quit() {
 		super.quit(...arguments);
 		process.stdout.write(this.jumper.eraseString() + ansiEscapes.cursorShow);
+	}
+
+	beforeSigStop() {
+		process.stdout.write(ansiEscapes.cursorShow);
+	}
+
+	onSigCont() {
+		this.render(true);
 	}
 
 	// TODO: destroy
