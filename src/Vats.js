@@ -38,6 +38,7 @@ class Vats extends EventEmitter {
 		}
 
 		this._onKeypress = this._onKeypress.bind(this);
+		this._onSigTerm = this._onSigTerm.bind(this);
 		this._onSigInt = this._onSigInt.bind(this);
 		this._onSigCont = this._onSigCont.bind(this);
 
@@ -77,6 +78,7 @@ class Vats extends EventEmitter {
 		emitKeypressEvents(process.stdin);
 		process.stdin.addListener('keypress', this._onKeypress);
 
+		process.on('SIGTERM', this._onSigTerm);
 		process.on('SIGINT', this._onSigInt);
 		process.on('SIGCONT', this._onSigCont);
 
@@ -162,8 +164,6 @@ class Vats extends EventEmitter {
 			process.kill(process.pid, 'SIGSTOP');
 			return;
 		}
-
-		// TODO: other signals?
 
 		const keymapData = this.keymapper.handleKey({ char, key });
 
@@ -312,9 +312,17 @@ class Vats extends EventEmitter {
 		this.destroy();
 	}
 
+	_onSigTerm() {
+		this.emitEvent('SIGTERM');
+		this._onSignalTermOrInt();
+	}
+
 	_onSigInt() {
 		this.emitEvent('SIGINT');
+		this._onSignalTermOrInt();
+	}
 
+	_onSignalTermOrInt() {
 		if (this.options.useAlternateScreen) {
 			this.exitAlternateScreen();
 		}
