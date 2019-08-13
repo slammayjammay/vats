@@ -365,9 +365,8 @@ class TreeUI extends BaseUI {
 		}
 	}
 
-	warn(string) {
-		// TODO: options argument
-		this.info(string, { warn: true });
+	warn(string, options = {}) {
+		this.info(string, { ...options, warn: true });
 	}
 
 	clearInfo() {
@@ -735,7 +734,24 @@ class TreeUI extends BaseUI {
 		this.render(true);
 	}
 
-	// TODO: destroy
+	destroy() {
+		super.destroy(...arguments);
+
+		this.tree = this.currentNode = null;
+		this._lineNumCache = null;
+		this.jumper = null;
+		this.activeColumnIdx = null;
+
+		this.columns.forEach(column => column.destroy());
+		this.columns = null;
+
+		this.headerView.destroy();
+		this.infoView.destroy();
+		this.linesView.destroy();
+
+		this.headerView = this.infoView = this.linesView = null;
+		this.activeColumn = this.childColumn = null;
+	}
 }
 
 module.exports = TreeUI;

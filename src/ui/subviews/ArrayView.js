@@ -157,6 +157,16 @@ class ArrayView extends BaseSubview {
 		const visibleHeight = this.getVisibleHeight();
 		return [start, start + visibleHeight];
 	}
+
+	destroy() {
+		super.destroy(...arguments);
+
+		this.array = this._diff = null;
+		this.activeIdx = this.prevActiveIdx = null;
+
+		this.displayFnMap.clear();
+		this.displayFnMap = null;
+	}
 }
 
 module.exports = ArrayView;

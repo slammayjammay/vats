@@ -21,6 +21,16 @@ class ViewSwitcher {
 
 		this.active = view;
 	}
+
+	destroy() {
+		this.div = null;
+		for (const view of this.views.values()) {
+			view.destroy();
+		}
+
+		this.views.clear();
+		this.views = this.active = null;
+	}
 }
 
 module.exports = ViewSwitcher;

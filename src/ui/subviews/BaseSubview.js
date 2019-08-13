@@ -5,7 +5,6 @@ class BaseSubview {
 		}
 
 		this.div = div;
-
 		this.isEnabled = true;
 	}
 
@@ -25,6 +24,10 @@ class BaseSubview {
 
 	setScrollPosY(scrollPosY) {
 		this.div.scrollY(scrollPosY);
+	}
+
+	destroy() {
+		this.div = this.isEnabled = null;
 	}
 }
 

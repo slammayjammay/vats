@@ -21,6 +21,11 @@ class TextView extends BaseSubview {
 			div.addBlock(this.text, this._blockId);
 		}
 	}
+
+	destroy() {
+		super.destroy(...arguments);
+		this.text = this._blockId = null;
+	}
 }
 
 module.exports = TextView;
