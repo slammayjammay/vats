@@ -1,9 +1,8 @@
 const { EventEmitter } = require('events');
 const { emitKeypressEvents } = require('readline');
 const minimist = require('minimist');
-const stringArgv = require('string-argv');
+const { parseArgsStringToArgv } = require('string-argv');
 const ansiEscapes = require('ansi-escapes');
-const pager = require('node-pager');
 const Event = require('./Event');
 const Keymapper = require('./Keymapper');
 const ViStateHandler = require('./ViStateHandler');
@@ -30,6 +29,9 @@ const DEFAULT_OPTIONS = {
 	getSearchOptions: null
 };
 
+/**
+ * TODO: registers
+ */
 class Vats extends EventEmitter {
 	constructor(options = {}) {
 		super();
@@ -119,7 +121,7 @@ class Vats extends EventEmitter {
 	}
 
 	parseArguments(string) {
-		return minimist(stringArgv(string));
+		return minimist(parseArgsStringToArgv(string));
 	}
 
 	/**
