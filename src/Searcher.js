@@ -1,17 +1,27 @@
 class Searcher {
 	constructor() {
 		/**
-		 * A cache object -- keys are query strings, values are an object with two
-		 * properties: `items` and `foundIndices`.
+		 * keys are arrays of items. values is an object that holds query strings
+		 * as keys and the found indices for that query as values.
 		 */
-		this._cache = {};
+		this.cache = new Map();
 	}
 
-	clearCache(query) {
-		if (!query) {
-			this._cache = {};
+	/**
+	 * Removes cached search results. If `query` is given, removes the search
+	 * results specific to the query. If `query` is not given, removes the entire
+	 * items key from the map.
+	 *
+	 * @param {array} items
+	 * @param {string} [query]
+	 */
+	clearCache(items, query) {
+		if (!this.cache.has(items)) {
+			return;
+		} else if (!query) {
+			this.cache.delete(items);
 		} else {
-			this._cache[query] = {};
+			this.cache.get(items).query = null;
 		}
 	}
 
@@ -27,8 +37,9 @@ class Searcher {
 	 * @param {number} opts.startIdx - The starting idx from where searches
 	 * are found.
 	 * @param {number} opts.count - The nth search item to find.
-	 * @param {boolean} opts.cache - Whether to use the cached search results
-	 * of the last search, if the query and items have not changed.
+	 * @param {boolean} opts.useCache - Will use cached search values if they
+	 * exist; if not will store them in cache after they are found.
+	 * @return {number} - The index of the matched item.
 	 */
 
 	/**
@@ -36,28 +47,31 @@ class Searcher {
 	 * @param {*} item - The item to test.
 	 * @param {string} query - The search string to test against.
 	 * @param {number} idx - The index of the item in the given array.
-	 * @return {number} - The index of the matched item.
+	 * @return {boolean} - Whether the search was successful.
 	 */
 	search(items, query, opts = {}) {
 		opts = Object.assign({
 			testFn: (item, query, idx) => item.includes(query),
-			startItemIdx: 0,
+			startItemIndex: 0,
 			count: 1,
-			cache: false
+			useCache: false
 		}, opts);
 
 		// search or reuse cached results if possible
-		let foundIndices;
-		if (opts.cache && this._cache[query] && this._cache[query].items === items) {
-			foundIndices = this._cache[query].foundIndices;
-		} else {
+		let foundIndices = opts.useCache && this.cache.get(items) && this.cache.get(items)[query];
+
+		if (!foundIndices) {
 			foundIndices = items.reduce((found, item, idx) => {
 				opts.testFn(item, query, idx) && found.push(idx);
 				return found;
 			}, []);
 
-			if (opts.cache) {
-				this._cache[query] = { items, foundIndices };
+			if (opts.useCache) {
+				if (!this.cache.get(items)) {
+					this.cache.set(items, {});
+				}
+
+				this.cache.get(items)[query] = foundIndices;
 			}
 		}
 
@@ -65,7 +79,7 @@ class Searcher {
 			return -1;
 		}
 
-		const startIdx = this._getStartIndex(items, foundIndices, opts.startItemIdx, opts.count);
+		const startIdx = this._getStartIndex(items, foundIndices, opts.startItemIndex, opts.count);
 		return this._getNextSearchItemFromIdx(foundIndices, startIdx, opts.count);
 	}
 
@@ -73,20 +87,20 @@ class Searcher {
 	 * @param {array<*>} items - The array of items searched.
 	 * @param {array<number>} foundIndices - The indices of items that matched
 	 * the search query.
-	 * @param {number} startItemIdx - The index in the original search array to
+	 * @param {number} startItemIndex - The index in the original search array to
 	 * start the search.
 	 * @param {number} dir - The direction of searching, positive for forward and
 	 * negative for backward.
 	 * @return {number} - The index in the `foundIndices` array to start at.
 	 */
-	_getStartIndex(items, foundIndices, startItemIdx, dir) {
+	_getStartIndex(items, foundIndices, startItemIndex, dir) {
 		let startIdx = dir > 0 ? foundIndices.length - 1 : 0;
 
 		for (let i = 0, l = foundIndices.length; i < l; i++) {
 			const itemIdx = foundIndices[i];
 
-			if (itemIdx >= startItemIdx) {
-				startIdx = (dir > 0 && itemIdx > startItemIdx) ? i - 1 : i;
+			if (itemIdx >= startItemIndex) {
+				startIdx = (dir > 0 && itemIdx > startItemIndex) ? i - 1 : i;
 				break;
 			}
 		}
@@ -112,7 +126,8 @@ class Searcher {
 	}
 
 	destroy() {
-		this._cache = null;
+		this.cache.clear();
+		this.cache = null;
 	}
 }
 

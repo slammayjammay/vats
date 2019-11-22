@@ -1,92 +1,125 @@
-const { spawnSync } = require('child_process');
 const { EventEmitter } = require('events');
 const { emitKeypressEvents } = require('readline');
-const deepmerge = require('deepmerge');
+const minimist = require('minimist');
+const stringArgv = require('string-argv');
 const ansiEscapes = require('ansi-escapes');
 const pager = require('node-pager');
-const termSize = require('term-size');
 const Event = require('./Event');
 const Keymapper = require('./Keymapper');
-const ViCursorNavigation = require('./ViCursorNavigation');
+const ViStateHandler = require('./ViStateHandler');
 const Searcher = require('./Searcher');
-const CommandMode = require('./CommandMode');
-const BaseUI = require('./ui/BaseUI');
-const TreeUI = require('./ui/TreeUI');
-const colorScheme = require('./color-scheme');
+const PromptMode = require('./PromptMode');
 
 const DEFAULT_OPTIONS = {
-	debug: false,
-	useAlternateScreen: true,
-	leaveTopRowAvailable: true, // not applicable when using alternate screen
-	colorScheme: 'default'
+	commandModeOnBottom: true,
+
+	// enter CommandMode on these keys
+	commandModeKeys: [':', '/', '?'],
+
+	// alias these keys to these commands. if no alias is found, the key is not
+	// included in the resulting command string.
+	commandModeKeyMap: { '/': 'search-next', '?': 'search-prev' },
+
+	// @type function
+	getViState: null,
+
+	// @type function
+	getSearchableItems: null,
+
+	// @type function
+	getSearchOptions: null
 };
 
 class Vats extends EventEmitter {
-	constructor(ui, structure, options = {}) {
+	constructor(options = {}) {
 		super();
 
-		this.options = this._parseOptions(options);
-
-		const defaultUIs = ['tree'];
-
-		if (ui instanceof BaseUI) {
-			this.ui = ui;
-		} else if (ui === 'tree') {
-			this.ui = new TreeUI(structure);
-		} else if (typeof ui === 'string' && !defaultUIs.includes(ui)) {
-			throw new Error(`Not a default ui: "${ui}".`);
-		}
+		this.options = { ...DEFAULT_OPTIONS, ...options };
 
 		this._onKeypress = this._onKeypress.bind(this);
 		this._onSigTerm = this._onSigTerm.bind(this);
 		this._onSigInt = this._onSigInt.bind(this);
 		this._onSigCont = this._onSigCont.bind(this);
 
-		this._stdinListeners = null;
+		this.isKeypressEnabled = null;
 		this._lastSearchQuery = null;
 		this._lastSearchDir = 1;
 
-		this.colorScheme = colorScheme;
 		this.keymapper = new Keymapper();
-		this.commandMode = new CommandMode();
-		this.viCursorNavigation = new ViCursorNavigation();
+		this.promptMode = new PromptMode();
+		this.viStateHandler = new ViStateHandler();
 		this.searcher = new Searcher();
 
-		this.setColorScheme(this.options.colorScheme);
 		this.keymapper.addKeymap(new Map(Object.entries(require('./keymap.json'))));
-	}
 
-	_parseOptions(options) {
-		return deepmerge.all([{}, DEFAULT_OPTIONS, options]);
+		emitKeypressEvents(process.stdin);
+		process.stdin.resume();
+		this.addKeypressListeners();
+		this.setRawMode(true);
+
+		process.on('SIGTERM', this._onSigTerm);
+		process.on('SIGINT', this._onSigInt);
+		process.on('SIGCONT', this._onSigCont);
 	}
 
 	_onKeypress(char, key) {
 		this.emitEvent('keypress', { char, key });
 	}
 
-	setColorScheme(scheme) {
-		this.colorScheme.use(scheme);
+	setRawMode() {
+		// will cause keypress events not to fire
+		return process.stdin.setRawMode(...arguments);
 	}
 
-	init() {
-		if (this.options.useAlternateScreen) {
-			this.enterAlternateScreen();
-		}
+	removeKeypressListeners() {
+		// removes SIGINT listening!
+		process.stdin.removeListener('keypress', this._onKeypress);
+		this.isKeypressEnabled = false;
+	}
 
-		process.stdin.resume();
-		process.stdin.setRawMode(true);
-		emitKeypressEvents(process.stdin);
+	addKeypressListeners() {
 		process.stdin.addListener('keypress', this._onKeypress);
-
-		process.on('SIGTERM', this._onSigTerm);
-		process.on('SIGINT', this._onSigInt);
-		process.on('SIGCONT', this._onSigCont);
-
-		this.ui.init(this, this.options);
+		this.isKeypressEnabled = true;
 	}
 
-	render() {
-		this.ui.render(...arguments);
+	async prompt(promptModeOptions) {
+		const wasKeypressEnabled = this.isKeypressEnabled;
+
+		wasKeypressEnabled && this.removeKeypressListeners();
+		const input = await this.promptMode.run(promptModeOptions);
+		wasKeypressEnabled && this.addKeypressListeners();
+
+		return input;
+	}
+
+	async enterCommandMode(promptModeOptions) {
+		promptModeOptions = {
+			cancelWhenEmpty: true,
+			onBottom: true,
+			...promptModeOptions
+		};
+
+		promptModeOptions.onBottom && process.stdout.write(
+			ansiEscapes.cursorSavePosition +
+			ansiEscapes.cursorTo(0, process.stdout.rows)
+		);
+
+		const input = await this.prompt(promptModeOptions);
+
+		promptModeOptions.onBottom && process.stdout.write(
+			ansiEscapes.cursorLeft +
+			ansiEscapes.eraseLine +
+			ansiEscapes.cursorRestorePosition
+		);
+
+		return {
+			input,
+			argv: this.parseArguments(input)
+		};
+	}
+
+	parseArguments(string) {
+		return minimist(stringArgv(string));
 	}
 
 	/**
@@ -98,12 +131,12 @@ class Vats extends EventEmitter {
 	 *
 	 * List of events emitted (not including UI events):
 	 * - "command" -- when a command or input is entered via CommandMode.
-	 * - "keypress" -- when the user enters a key.
-	 * - "keybinding" -- a recognized keybinding.
+	 * - "keypress" -- when the user presses a key.
+	 * - "keybinding" -- a recognized vi keybinding.
 	 * - "quit" -- when the program ends.
 	 */
 	emitEvent(eventName, data = {}) {
-		const event = new Event(eventName, { vats: this, ...data });
+		const event = new Event(eventName, data);
 
 		this.emit(eventName, event);
 
@@ -127,27 +160,21 @@ class Vats extends EventEmitter {
 		}
 	}
 
-	_defaultBehaviorForCommand({ argv, commandString, commandPrompt, fyis }) {
+	_defaultBehaviorForCommand({ argv, commandString }) {
 		const command = argv._[0];
 
-		if (['h', 'help'].includes(command)) {
-			this.pager('showing VATS help screen');
-		} else if (['exit', 'q', 'quit'].includes(command)) {
-			this.quit();
-		} else if (['redraw', 'render'].includes(command)) {
-			this.render(true);
-		} else if (command === 'search') {
-			const count = commandPrompt === '?' ? -1 : 1;
+		if (typeof command !== 'string') {
+			return;
+		}
+
+		if (command.slice(0, 6) === 'search') {
+			const count = command === 'search-next' ? 1 : -1;
 			const query = argv._.slice(1).join(' ');
 
-			this.search(query, count);
+			this._search(query, count);
 
 			this._lastSearchQuery = query;
 			this._lastSearchDir = count > 0 ? 1 : -1;
-		} else if (fyis.get('command-not-found')) {
-			const cmd = typeof fyis.get('command-not-found') === 'string' ?
-				fyis.get('command-not-found') : command;
-			this.emitEvent('command-not-found', { command: cmd });
 		}
 	}
 
@@ -173,120 +200,66 @@ class Vats extends EventEmitter {
 
 		if (keymapData) {
 			this.emitEvent('keybinding', keymapData);
-		} else if ([':', '/', '?'].includes(char)) {
-			this.enterCommandMode({ prompt: char }).then(commandData => {
-				if (!commandData) {
-					return;
+		} else if (this.options.commandModeKeys.includes(char)) {
+			this.emitEvent('command-mode:enter');
+
+			this.enterCommandMode({
+				prompt: char,
+				onBottom: this.options.commandModeOnBottom
+			}).then(data => {
+				this.emitEvent('command-mode:exit');
+
+				if (this.options.commandModeKeyMap[char]) {
+					data.argv._.unshift(this.options.commandModeKeyMap[char]);
 				}
 
-				if (['/', '?'].includes(commandData.commandPrompt)) {
-					commandData.argv._.unshift('search');
-				}
-
-				this.emitEvent('command', commandData);
-			}).catch(e => this.pager(e));
+				this.emitEvent('command', data);
+			}).catch(e => console.log(e));
 		}
 	}
 
 	_defaultBehaviorForKeybinding({ keyString, keyAction, count, charsRead }) {
-		if (keyAction.slice(0, 3) === 'vi:') {
-			this.ui.handleViKeybinding(...arguments);
-		} else if (keyAction === 'search-next' && this._lastSearchQuery) {
-			this.search(this._lastSearchQuery, count * this._lastSearchDir);
-		} else if (keyAction === 'search-previous' && this._lastSearchQuery) {
-			this.search(this._lastSearchQuery, -count * this._lastSearchDir);
+		const match = /^search-(\w+)/.exec(keyAction);
+		if (match && this._lastSearchQuery) {
+			const dir = match[1] === 'next' ? 1 : -1;
+			this._search(this._lastSearchQuery, count * dir * this._lastSearchDir);
+		}
+
+		if (keyAction.slice(0, 3) === 'vi:' && this.options.getViState) {
+			const state = this.options.getViState();
+			const stateChanged = this.updateState(state, keyAction.slice(3), count);
+			stateChanged && this.emitEvent('state-change', { state });
 		}
 	}
 
-	async pager(string) {
-		this.emitEvent('pager:enter');
-
-		if (this.options.useAlternateScreen) {
-			this.exitAlternateScreen();
+	updateState(state, diff, count = 1) {
+		if (typeof diff === 'string') {
+			diff = this.viStateHandler.getDiffForKeybinding(diff, state, count);
 		}
 
-		await pager(string);
-
-		if (this.options.useAlternateScreen) {
-			this.enterAlternateScreen();
-		}
-
-		this.emitEvent('pager:exit');
+		return this.viStateHandler.changeState(state, diff);
 	}
 
-	enterAlternateScreen() {
-		spawnSync('tput smcup', { shell: true, stdio: 'inherit' });
-	}
-
-	exitAlternateScreen() {
-		spawnSync('tput rmcup', { shell: true, stdio: 'inherit' });
-	}
-
-	async prompt(prompt, options = { saveToHistory: false }) {
-		const output = await this.enterCommandMode({ prompt, ...options });
-		return output ? output.commandString : null;
-	}
-
-	/**
-	 * Removes all keypress listeners on stdin. Once command mode is finished, add
-	 * them back in.
-	 * @param {Object} commandModeOptions - Options to run CommandMode with. See
-	 * CommandMode#run.
-	 */
-	async enterCommandMode(commandModeOptions) {
-		this.emitEvent('command-mode:enter');
-
-		this._stdinListeners = process.stdin.listeners('keypress');
-		for (const listener of this._stdinListeners) {
-			process.stdin.removeListener('keypress', listener);
-		}
-
-		process.stdout.write(
-			ansiEscapes.cursorSavePosition +
-			ansiEscapes.cursorShow +
-			ansiEscapes.cursorTo(0, termSize().rows)
-		);
-
-		const output = await this.commandMode.run(commandModeOptions);
-
-		process.stdin.resume();
-		process.stdin.setRawMode(true);
-
-		for (const listener of this._stdinListeners) {
-			process.stdin.addListener('keypress', listener);
-		}
-
-		process.stdout.write(
-			ansiEscapes.cursorLeft +
-			ansiEscapes.eraseLine +
-			ansiEscapes.cursorHide +
-			ansiEscapes.cursorRestorePosition
-		);
-
-		this.emitEvent('command-mode:exit');
-
-		return Promise.resolve(output);
-	}
-
-	search(query, count = 1) {
-		if (count === 0) {
+	_search(query, count = 1) {
+		if (!this.options.getSearchableItems) {
 			return;
 		}
 
-		this.ui.search(query, count);
+		const items = this.options.getSearchableItems();
+		const options = this.options.getSearchOptions && this.options.getSearchOptions(items);
+		const index = this.searcher.search(items, query, { count, ...options });
+
+		this.emitEvent('search', { index });
 	}
 
 	destroy() {
-		this.ui.destroy();
-
-		const destroyables = ['colorScheme', 'keymapper', 'commandMode', 'viCursorNavigation', 'searcher'];
+		const destroyables = ['keymapper', 'promptMode', 'viStateHandler', 'searcher'];
 		for (const instanceKey of destroyables) {
 			this[instanceKey].destroy();
 			this[instanceKey] = null;
 		}
 
-		this.options = this._count = this._lastChar = null;
-		this._stdinListeners = null;
+		this.options = this._count = null;
 
 		process.stdin.removeListener('keypress', this._onKeypress);
 
@@ -298,12 +271,6 @@ class Vats extends EventEmitter {
 	}
 
 	quit() {
-		this.ui.quit();
-
-		if (this.options.useAlternateScreen) {
-			this.exitAlternateScreen();
-		}
-
 		process.stdin.setRawMode(false);
 		process.stdin.pause();
 
@@ -323,31 +290,17 @@ class Vats extends EventEmitter {
 	}
 
 	_onSignalTermOrInt() {
-		if (this.options.useAlternateScreen) {
-			this.exitAlternateScreen();
-		}
-
 		this.quit();
 	}
 
 	_onSigCont() {
 		process.stdin.setRawMode(true);
-
-		if (this.options.useAlternateScreen) {
-			this.enterAlternateScreen();
-		}
-
 		this.emitEvent('SIGCONT');
 	}
 
 	_beforeSigStop() {
 		process.stdin.setRawMode(false);
-
 		this.emitEvent('before-sig-stop');
-
-		if (this.options.useAlternateScreen) {
-			this.exitAlternateScreen();
-		}
 	}
 }
 

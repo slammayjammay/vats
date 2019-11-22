@@ -6,7 +6,6 @@ class Event {
 		this.preventDefault = this.preventDefault.bind(this);
 
 		this._defaultPrevented = false;
-		this.fyis = new Map();
 	}
 
 	isDefaultPrevented() {

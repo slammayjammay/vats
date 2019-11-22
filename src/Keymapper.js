@@ -27,6 +27,8 @@ const NODE_KEY_CONVERSION = {
 /**
  * See `keymap.json` for list of all keymaps.
  *
+ * TODO: maybe export constants instead of a json file
+ *
  * Meta keys must be listed in the correct order to create a key binding. Order
  * is "ctrl+option+meta+shift".
  */
@@ -35,7 +37,6 @@ class Keymapper {
 		this.readOneChar = this.readOneChar.bind(this);
 
 		this._input = '';
-		this._numReads = 0;
 
 		this.readFunctionMap = new Map();
 		this.keymap = new Map();
@@ -53,9 +54,17 @@ class Keymapper {
 	 */
 	addKeymap(map) {
 		this.keymap = new Map([...this.keymap, ...map]);
+		this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
+	}
 
-		this._inputTree = this._constructInputTree(this.keymap);
-		this._inputNode = this._inputTree;
+	get() {
+		return this.keymap.get(...arguments);
+	}
+
+	set() {
+		const ret = this.keymap.set(...arguments);
+		this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
+		return ret;
 	}
 
 	_constructInputTree(keymap) {
@@ -101,8 +110,12 @@ class Keymapper {
 
 		this._input += keypressString;
 
-		// an input string that consists of only numbers
-		if (/\d/.test(keypressString) && /^\d*$/.test(this._input)) {
+		// an input string that consists of only numbers,
+		if (
+			!/^0$/.test(this._input) &&
+			/\d/.test(keypressString) &&
+			/^\d*$/.test(this._input)
+		) {
 			return false;
 		}
 
@@ -149,24 +162,17 @@ class Keymapper {
 	}
 
 	/**
-	 * A read function. This one will only read one character, used for the "f"
-	 * keybinding ("find").
+	 * A read function. This one will only read one character, used e.g. for the
+	 * "f" keybinding ("find"). Custom read functions can be defined and set
+	 * inside the readFunctionMap.
 	 *
-	 * Custom read functions can be defined and set inside the readFunctionMap.
-	 *
-	 * @return {boolean|string} - If truthy, indicates that reading additional
-	 * characters should end. If falsey, indcates that reading additional
-	 * characters should continue.
+	 * @param {string} keypressString - The string representing the character
+	 * entered.
+	 * @return {boolean|string} - Return false to indicate that more characters
+	 * should be read. Return a string representing the characters read.
 	 */
 	readOneChar(keypressString) {
-		this._numReads += 1;
-
-		if (this._numReads >= 1) {
-			this._numReads = 0;
-			return keypressString;
-		}
-
-		return false;
+		return keypressString;
 	}
 
 	getKeypressString({ char, key }) {
@@ -215,6 +221,10 @@ class Keymapper {
 	}
 
 	parseInput(input) {
+		if (input === '0') {
+			return { keyString: '0', count: 1 };
+		}
+
 		const count = (() => {
 			const match = /^(\d*)/.exec(input);
 			return match && match[1] ? parseInt(match[1]) : 1;
@@ -226,7 +236,7 @@ class Keymapper {
 	}
 
 	destroy() {
-		this._input = this._numReads = null;
+		this._input = null;
 		this.readFunctionMap = this.keymap = null;
 		this._inputTree = this._inputNode = this._isReading = null;
 	}

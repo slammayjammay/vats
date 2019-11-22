@@ -1,11 +1,9 @@
 const { createInterface } = require('readline');
-const minimist = require('minimist');
-const stringArgv = require('string-argv');
 
 const RUN_OPTION_DEFAULTS = {
-	prompt: ':',
-	command: '',
-	saveToHistory: true
+	prompt: '',
+	prepopulate: '',
+	cancelWhenEmpty: false
 };
 
 class CommandMode {
@@ -55,7 +53,7 @@ class CommandMode {
 		this.enable();
 
 		this.rl.setPrompt(this._options.prompt);
-		this.rl.line = this._options.command;
+		this.rl.line = this._options.prepopulate;
 		this.rl.cursor = this.rl.line.length;
 		this.rl._refreshLine();
 
@@ -73,12 +71,12 @@ class CommandMode {
 
 	_onKeypress(char, key) {
 		const isBackspaceOnEmpty = (key.name === 'backspace' && this.rl.line.length === 0);
-		const escaped = key.name === 'escape' || key.sequence === '\u0003';
+		const escaped = key.name === 'escape' || (key.ctrl && key.name === 'c');
 
 		// escape
-		if (isBackspaceOnEmpty || escaped) {
+		if (escaped || (this._options.cancelWhenEmpty && isBackspaceOnEmpty)) {
 			this.quit();
-			this.resolve(null);
+			this.resolve('');
 			return;
 		}
 
@@ -89,26 +87,13 @@ class CommandMode {
 		}
 
 		// when enter is pressed, resolve
-		const commandData = this._getCommandData(this.rl.line, this.rl._prompt);
 		this.quit();
-		this.resolve(commandData);
-	}
-
-	_getCommandData(line, prompt) {
-		return {
-			commandString: line,
-			commandPrompt: prompt,
-			argv: minimist(stringArgv(line))
-		};
+		this.resolve(this.rl.line);
 	}
 
 	resolve(val) {
 		if (!this._resolve) {
 			return;
-		}
-
-		if (this._options.saveToHistory && val) {
-			this.rl._addHistory();
 		}
 
 		const resolve = this._resolve;
