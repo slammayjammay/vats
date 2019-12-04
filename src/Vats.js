@@ -10,22 +10,23 @@ const Searcher = require('./Searcher');
 const PromptMode = require('./PromptMode');
 
 const DEFAULT_OPTIONS = {
-	commandModeOnBottom: true,
-
-	// enter CommandMode on these keys
+	// enter CommandMode/PromptMode on these keys
 	commandModeKeys: [':', '/', '?'],
+
+	// should CommandMode be on bottom left of screen like vim?
+	promptModeOnBottom: true,
 
 	// alias these keys to these commands. if no alias is found, the key is not
 	// included in the resulting command string.
-	commandModeKeyMap: { '/': 'search-next', '?': 'search-prev' },
+	commandModeKeyMap: { '/': 'search-next', '?': 'search-previous' },
 
-	// @type function
+	// @type function, optional
 	getViState: null,
 
-	// @type function
+	// @type function, optional
 	getSearchableItems: null,
 
-	// @type function
+	// @type function, optional
 	getSearchOptions: null
 };
 
@@ -131,11 +132,24 @@ class Vats extends EventEmitter {
 	 * event is prevented, default behavior will be called for that event via its
 	 * own #_defaultBehaviorForEVENT() method.
 	 *
-	 * List of events emitted (not including UI events):
+	 * List of events emitted:
 	 * - "command" -- when a command or input is entered via CommandMode.
+	 * - "command-mode:enter" -- emitted before entering CommandMode.
+	 * - "command-mode:exit" -- emitted after entering CommandMode.
 	 * - "keypress" -- when the user presses a key.
 	 * - "keybinding" -- a recognized vi keybinding.
-	 * - "quit" -- when the program ends.
+	 * - "search" -- only if `getSearchableItems` option is given. will search
+	 *   items and emit the found index when searching with vi keybindings.
+	 * - "state-change" -- only if `getViState` option is given. when vi
+	 *   keybindings are recognized, they will automatically change the state.
+	 * - "close" -- when the program ends.
+	 * - "SIGINT" -- a SIGINT signal was detected.
+	 * - "SIGCONT" -- a SIGCONT signal was detected.
+	 * - "SIGTERM" -- a SIGTERM signal was detected.
+	 * - "before-sig-stop" -- essentially a SIGSTOP signal. SIGSTOP signals
+	 *   cannot be caught or ignored, however certain keypresses ("ctrl+z")
+	 *   commonly send this signal. this event is emitted when those keys are
+	 *   pressed, and then the process is killed immediately afterward.
 	 */
 	emitEvent(eventName, data = {}) {
 		const event = new Event(eventName, data);
@@ -173,10 +187,7 @@ class Vats extends EventEmitter {
 			const count = command === 'search-next' ? 1 : -1;
 			const query = argv._.slice(1).join(' ');
 
-			this._search(query, count);
-
-			this._lastSearchQuery = query;
-			this._lastSearchDir = count > 0 ? 1 : -1;
+			this.search(query, count);
 		}
 	}
 
@@ -207,7 +218,7 @@ class Vats extends EventEmitter {
 
 			this.enterCommandMode({
 				prompt: char,
-				onBottom: this.options.commandModeOnBottom
+				onBottom: this.options.promptModeOnBottom
 			}).then(data => {
 				this.emitEvent('command-mode:exit');
 
@@ -242,6 +253,11 @@ class Vats extends EventEmitter {
 		return this.viStateHandler.changeState(state, diff);
 	}
 
+	search(query, count = 1) {
+		this._lastSearchDir = count > 0 ? 1 : -1;
+		return this._search(query, count);
+	}
+
 	_search(query, count = 1) {
 		if (!this.options.getSearchableItems) {
 			return;
@@ -252,6 +268,8 @@ class Vats extends EventEmitter {
 		const index = this.searcher.search(items, query, { count, ...options });
 
 		this.emitEvent('search', { index });
+
+		this._lastSearchQuery = query;
 	}
 
 	destroy() {
