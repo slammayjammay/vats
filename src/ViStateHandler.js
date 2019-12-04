@@ -28,7 +28,7 @@ class ViStateHandler {
 			['cursor-to-document-left', (state, count) => ({ cursorX: 0 })],
 			['cursor-to-document-right', (state, count) => ({ cursorX: state.documentWidth })],
 			['cursor-to-document-top', (state, count) => ({ cursorY: 0 })],
-			['cursor-to-document-bottom', (state, count) => ({ cursorY: state.documentHeight })],
+			['cursor-to-document-bottom', (state, count) => ({ cursorY: state.documentHeight, scrollY: state.documentHeight - state.windowHeight })],
 
 			['cursor-to-window-top', (state, count) => ({ cursorY: state.scrollY })],
 			['cursor-to-window-middle', (state, count) => ({ cursorY: state.scrollY + ~~(state.windowHeight / 2) })],
@@ -150,7 +150,7 @@ class ViStateHandler {
 		return cursorX - (cursorX < scrollX ? 0 : windowWidth);
 	}
 
-	correctScrollY({ cursorY, scrollY, windowHeight }, previousCursorY) {
+	correctScrollY({ cursorY, scrollY, windowHeight, documentHeight }, previousCursorY) {
 		if (this.isCursorYInsideWindow({ cursorY, scrollY, windowHeight })) {
 			return scrollY;
 		}
@@ -161,7 +161,7 @@ class ViStateHandler {
 		);
 
 		if (shouldCenter) {
-			return this.centerAlignScreenAroundCursorY({ cursorY, windowHeight }).scrollY;
+			return this.centerAlignScreenAroundCursorY({ cursorY, windowHeight, documentHeight }).scrollY;
 		}
 
 		return cursorY - (cursorY < scrollY ? 0 : windowHeight);
@@ -175,8 +175,8 @@ class ViStateHandler {
 		return { scrollY: cursorY };
 	}
 
-	centerAlignScreenAroundCursorY({ cursorY, windowHeight }) {
-		return { scrollY: Math.max(0, cursorY - ~~(windowHeight / 2)) };
+	centerAlignScreenAroundCursorY({ cursorY, windowHeight, documentHeight }) {
+		return { scrollY: Math.max(0, Math.min(documentHeight - windowHeight, cursorY - ~~(windowHeight / 2))) };
 	}
 
 	bottomAlignScreenAroundCursorY({ cursorY, windowHeight }) {

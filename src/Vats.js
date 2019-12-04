@@ -257,8 +257,10 @@ class Vats extends EventEmitter {
 	destroy() {
 		const destroyables = ['keymapper', 'promptMode', 'viStateHandler', 'searcher'];
 		for (const instanceKey of destroyables) {
-			this[instanceKey].destroy();
-			this[instanceKey] = null;
+			if (this[instanceKey]) {
+				this[instanceKey].destroy();
+				this[instanceKey] = null;
+			}
 		}
 
 		this.options = this._count = null;
