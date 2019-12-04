@@ -11,7 +11,7 @@ const PromptMode = require('./PromptMode');
 
 const DEFAULT_OPTIONS = {
 	// enter CommandMode/PromptMode on these keys
-	commandModeKeys: [':', '/', '?'],
+	promptModeKeys: [':', '/', '?'],
 
 	// should CommandMode be on bottom left of screen like vim?
 	promptModeOnBottom: true,
@@ -131,25 +131,6 @@ class Vats extends EventEmitter {
 	 * Some events are cancellable by calling Event#preventDefault(). Unless the
 	 * event is prevented, default behavior will be called for that event via its
 	 * own #_defaultBehaviorForEVENT() method.
-	 *
-	 * List of events emitted:
-	 * - "command" -- when a command or input is entered via CommandMode.
-	 * - "command-mode:enter" -- emitted before entering CommandMode.
-	 * - "command-mode:exit" -- emitted after entering CommandMode.
-	 * - "keypress" -- when the user presses a key.
-	 * - "keybinding" -- a recognized vi keybinding.
-	 * - "search" -- only if `getSearchableItems` option is given. will search
-	 *   items and emit the found index when searching with vi keybindings.
-	 * - "state-change" -- only if `getViState` option is given. when vi
-	 *   keybindings are recognized, they will automatically change the state.
-	 * - "close" -- when the program ends.
-	 * - "SIGINT" -- a SIGINT signal was detected.
-	 * - "SIGCONT" -- a SIGCONT signal was detected.
-	 * - "SIGTERM" -- a SIGTERM signal was detected.
-	 * - "before-sig-stop" -- essentially a SIGSTOP signal. SIGSTOP signals
-	 *   cannot be caught or ignored, however certain keypresses ("ctrl+z")
-	 *   commonly send this signal. this event is emitted when those keys are
-	 *   pressed, and then the process is killed immediately afterward.
 	 */
 	emitEvent(eventName, data = {}) {
 		const event = new Event(eventName, data);
@@ -213,7 +194,7 @@ class Vats extends EventEmitter {
 
 		if (keymapData) {
 			this.emitEvent('keybinding', keymapData);
-		} else if (this.options.commandModeKeys.includes(char)) {
+		} else if (this.options.promptModeKeys.includes(char)) {
 			this.emitEvent('command-mode:enter');
 
 			this.enterCommandMode({
@@ -253,6 +234,7 @@ class Vats extends EventEmitter {
 		return this.viStateHandler.changeState(state, diff);
 	}
 
+	// TODO: should this method return a value or emit an event?
 	search(query, count = 1) {
 		this._lastSearchDir = count > 0 ? 1 : -1;
 		return this._search(query, count);
