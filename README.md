@@ -6,12 +6,11 @@ For interactive terminal applications that want to use some or all of VI functio
 
 ## Does not implement:
 - visual mode or insert mode
-- anything UI-related, with CommandMode and info footer as exceptions
+- anything UI-related, with CommandMode as the exception
 
 ## Features
 - event-based (see Events section below)
 - maps common VI keybindings and allows custom
-- implements info footer
 - calculates state (cursor positions, scroll position, etc.)
 - implements VI modes:
   - normal mode
