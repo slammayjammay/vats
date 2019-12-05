@@ -1,21 +1,7 @@
-// when creating a keymap, prepending "shift+" only makes sense when these
-// special keys are pressed. When normal keys are pressed, just add that
-// character instead. For example, "N" is valid whereas "shift+n" is not.
 const SHIFTABLE_KEYS = [
 	'escape', 'return', 'tab', 'backspace', 'up', 'down', 'left', 'right'
 ];
 
-/**
- * Node's char/key to represent a keypress is annoying. Instead, convert
- * char/key to one string.
- *
- * Keys are the strings present in `key.name`, values are what will be used in
- * the final keypress string. If `char` is empty but `key.name` is present
- * (e.g. "escape"), and `key.name` is not present in this object, then
- * `key.name` will be used in the keypress string.
- *
- * See #getKeypressString
- */
 const NODE_KEY_CONVERSION = {
 	up: 'UP_ARROW',
 	down: 'DOWN_ARROW',
@@ -25,20 +11,39 @@ const NODE_KEY_CONVERSION = {
 };
 
 /**
- * See `keymap.json` for list of all keymaps.
- *
- * TODO: maybe export constants instead of a json file
- *
- * Meta keys must be listed in the correct order to create a key binding. Order
- * is "ctrl+option+meta+shift".
+ * See `keymap.js` for list of all keymaps.
  */
-class Keymapper {
+class InputHandler {
+	/**
+	 * When creating a keymap, prepending "shift+" only makes sense when these
+	 * special keys are pressed. When normal keys are pressed, just add that
+	 * character instead. For example, "N" is valid whereas "shift+n" is not.
+	 */
+	static get SHIFTABLE_KEYS() {
+		return SHIFTABLE_KEYS;
+	}
+
+	/**
+	 * Node's char/key to represent a keypress is annoying. Instead, convert
+	 * char/key to one string.
+	 *
+	 * Keys are the strings present in `key.name`, values are what will be used in
+	 * the final keypress string. If `char` is empty but `key.name` is present
+	 * (e.g. "escape"), and `key.name` is not present in this object, then
+	 * `key.name` will be used in the keypress string.
+	 *
+	 * See #formatCharKey
+	 */
+	static get NODE_KEY_CONVERSION() {
+		return NODE_KEY_CONVERSION;
+	}
+
 	constructor() {
 		this.readOneChar = this.readOneChar.bind(this);
 
 		this._input = '';
 
-		this.readFunctionMap = new Map();
+		this.readFunctions = new Map();
 		this.keymap = new Map();
 
 		this._inputTree = null;
@@ -46,25 +51,40 @@ class Keymapper {
 
 		this._isReading = false;
 
-		this.readFunctionMap.set('readOneChar', this.readOneChar);
+		this.readFunctions.set('readOneChar', this.readOneChar);
 	}
 
 	/**
-	 * @param {map} map - The keymap to add.
+	 * Merges the given map with the existing one.
+	 * @param {map} map - The keymap to marge.
 	 */
-	addKeymap(map) {
+	mergeKeymap(map) {
 		this.keymap = new Map([...this.keymap, ...map]);
 		this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
 	}
 
-	get() {
-		return this.keymap.get(...arguments);
-	}
+	get() { return this.keymap.get(...arguments); }
+
+	has() { return this.keymap.has(...arguments); }
 
 	set() {
 		const ret = this.keymap.set(...arguments);
 		this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
 		return ret;
+	}
+
+	delete() {
+		if (this.keymap.delete(...arguments)) {
+			this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
+			return true;
+		}
+
+		return false;
+	}
+
+	clear() {
+		this.keymap.clear(...arguments);
+		this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
 	}
 
 	_constructInputTree(keymap) {
@@ -97,12 +117,12 @@ class Keymapper {
 	}
 
 	/**
-	 * @return {Object|boolean} - If a keybinding is found, returns a keybinding
+	 * @return {object|boolean} - If a keybinding is found, returns a keybinding
 	 * object. If no keybinding is found, or if additional chars are needed to
-	 * complete a keybinding, returns false;
+	 * complete a keybinding, returns null.
 	 */
-	handleKey({ char, key }) {
-		const keypressString = this.getKeypressString({ char, key });
+	handleKey(char, key) {
+		const keypressString = this.formatCharKey(char, key);
 
 		if (this._isReading) {
 			return this.read(keypressString);
@@ -112,18 +132,18 @@ class Keymapper {
 
 		// an input string that consists of only numbers,
 		if (
-			!/^0$/.test(this._input) &&
 			/\d/.test(keypressString) &&
-			/^\d*$/.test(this._input)
+			/^\d*$/.test(this._input) &&
+			!/^0$/.test(this._input) // except when 0 is pressed
 		) {
-			return false;
+			return null;
 		}
 
 		// following along a string of chars, part of a snippet
 		if (this._inputNode[keypressString]) {
 			this._inputNode = this._inputNode[keypressString];
 			this._input += ' ';
-			return false;
+			return null;
 		}
 
 		const { keyString } = this.parseInput(this._input);
@@ -135,7 +155,7 @@ class Keymapper {
 		} else if (val.read) {
 			// a keybinding is found but additional characters need to be read
 			this._isReading = true;
-			this._readFunction = this.readFunctionMap.get(val.read);
+			this._readFunction = this.readFunctions.get(val.read);
 			if (!this._readFunction) {
 				throw new Error(`Read function "${val.read}" not found.`);
 			}
@@ -146,7 +166,7 @@ class Keymapper {
 			return keybindingObject;
 		}
 
-		return false;
+		return null;
 	}
 
 	read(keypressString) {
@@ -158,13 +178,14 @@ class Keymapper {
 		const keybindingObject = this.getKeybindingObject(this._input, charsRead);
 		this._resetInput();
 		this._isReading = false;
+		this._readFunction = null;
 		return keybindingObject;
 	}
 
 	/**
 	 * A read function. This one will only read one character, used e.g. for the
 	 * "f" keybinding ("find"). Custom read functions can be defined and set
-	 * inside the readFunctionMap.
+	 * inside the readFunctions.
 	 *
 	 * @param {string} keypressString - The string representing the character
 	 * entered.
@@ -175,7 +196,7 @@ class Keymapper {
 		return keypressString;
 	}
 
-	getKeypressString({ char, key }) {
+	formatCharKey(char, key) {
 		let keyString;
 
 		if (key.ctrl || key.meta) {
@@ -186,8 +207,8 @@ class Keymapper {
 			keyString = key.name;
 		}
 
-		if (NODE_KEY_CONVERSION[key.name]) {
-			keyString = NODE_KEY_CONVERSION[key.name];
+		if (this.constructor.NODE_KEY_CONVERSION[key.name]) {
+			keyString = this.constructor.NODE_KEY_CONVERSION[key.name];
 		}
 
 		// order matters!
@@ -199,7 +220,7 @@ class Keymapper {
 		// also, node sometimes does not set `key.shift` as true -- e.g. on
 		// shift+enter, `key.shift` is false. That is node's problem -- enter
 		// is still a "shiftable" key in this context.
-		if (key.shift && SHIFTABLE_KEYS.includes(key.name)) {
+		if (key.shift && this.constructor.SHIFTABLE_KEYS.includes(key.name)) {
 			keyString = `shift+${keyString}`;
 		}
 
@@ -216,8 +237,8 @@ class Keymapper {
 	getKeybindingObject(input, charsRead = '') {
 		const { keyString, count } = this.parseInput(input);
 		const val = this.keymap.get(keyString);
-		const keyAction = typeof val === 'string' ? val : val.send;
-		return { keyString, keyAction, count, charsRead };
+		const action = typeof val === 'string' ? val : val.action;
+		return { keyString, action, count, charsRead };
 	}
 
 	parseInput(input) {
@@ -236,10 +257,12 @@ class Keymapper {
 	}
 
 	destroy() {
+		this.readFunctions.clear();
+		this.keymap.clear();
 		this._input = null;
-		this.readFunctionMap = this.keymap = null;
+		this.readFunctions = this.keymap = null;
 		this._inputTree = this._inputNode = this._isReading = null;
 	}
 }
 
-module.exports = Keymapper;
+module.exports = InputHandler;

@@ -1,3 +1,4 @@
-const Vats = require('./Vats');
-
-module.exports = { Vats };
+module.exports = {
+	Vats: require('./Vats'),
+	keymap: require('./keymap')
+};

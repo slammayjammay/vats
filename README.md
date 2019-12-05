@@ -68,3 +68,18 @@ List of events emitted:
 - `getSearchableItems` -- A function that returns an array of items. Optional. If given, will search through and emit the `search` event with the found index.
 
 - `getSearchOptions` -- A function that returns options that will be passed to the `Searcher` instance. Optional.
+
+## Keymaps
+See `keymap.js` for default keybindings. It exports a `Map` instance with keypress strings as keys and actions as values. `'j': 'cursor-down'`, `'DOWN_ARROW': 'cursor-down'`.
+
+Keys strings must be formatted correctly. The `InputHandler#formatCharKey` will take in the `char` and `key` parameters emitted by Node and return a correctly formatted string. For example: when pressing the up arrow: `char` is `undefined` and `key.name` is `up`. The formatted string becomes `UP_ARROW`.
+
+Meta keys must be in the correct order. if you press `j` while holding the keys `option`, `meta`, `shift`, and `ctrl`, the formatted string becomes `ctrl+option+meta+shift+j`, with the meta keys listed in that order. This formatting is also done inside `InputHandler#formatCharKey`. Note that the formatted string for the char `N` is `N`, not `shift+n`. Similarly, the key `!` is valid whereas `shift+1` is not.
+
+Key strings can be combined with spaces (see the keymap `g g`). The resulting action will be fired when the user pressed the `g` key twice. Note that if the keymap `g g` is set along with `g`, the desired behavior is ambiguous -- `g` will end up being ignored (as a `keybinding`. It's still available in `keypress` events however).
+
+Actions can be strings or objects. If an object is given, its signature is:
+  - `action`: (string) the action to send
+  - `read`: (string, optional) the name of the read function for additional characters
+
+If `read` is given, `InputHandler` will delay firing a keybinding event and instead read an indefinite number of characters. The number of characters read and the characters sent is up to the read function. For more info on read functions, see the `InputHandler#readOneChar` function and the `InputHandler.readFunctions` map.

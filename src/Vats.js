@@ -4,7 +4,7 @@ const minimist = require('minimist');
 const { parseArgsStringToArgv } = require('string-argv');
 const ansiEscapes = require('ansi-escapes');
 const Event = require('./Event');
-const Keymapper = require('./Keymapper');
+const InputHandler = require('./InputHandler');
 const ViStateHandler = require('./ViStateHandler');
 const Searcher = require('./Searcher');
 const PromptMode = require('./PromptMode');
@@ -48,12 +48,12 @@ class Vats extends EventEmitter {
 		this._lastSearchQuery = null;
 		this._lastSearchDir = 1;
 
-		this.keymapper = new Keymapper();
+		this.inputHandler = new InputHandler();
 		this.promptMode = new PromptMode();
 		this.viStateHandler = new ViStateHandler();
 		this.searcher = new Searcher();
 
-		this.keymapper.addKeymap(new Map(Object.entries(require('./keymap.json'))));
+		this.inputHandler.mergeKeymap(require('./keymap'));
 
 		emitKeypressEvents(process.stdin);
 		process.stdin.resume();
@@ -186,9 +186,9 @@ class Vats extends EventEmitter {
 			return;
 		}
 
-		const keymapData = this.keymapper.handleKey({ char, key });
+		const keymapData = this.inputHandler.handleKey(char, key);
 
-		if (this.keymapper.isReading()) {
+		if (this.inputHandler.isReading()) {
 			return;
 		}
 
@@ -212,26 +212,29 @@ class Vats extends EventEmitter {
 		}
 	}
 
-	_defaultBehaviorForKeybinding({ keyString, keyAction, count, charsRead }) {
-		const match = /^search-(\w+)/.exec(keyAction);
+	_defaultBehaviorForKeybinding({ keyString, action, count, charsRead }) {
+		const match = /^search-(next|previous)$/.exec(action);
 		if (match && this._lastSearchQuery) {
 			const dir = match[1] === 'next' ? 1 : -1;
 			this._search(this._lastSearchQuery, count * dir * this._lastSearchDir);
 		}
 
-		if (keyAction.slice(0, 3) === 'vi:' && this.options.getViState) {
+		if (
+			this.options.getViState &&
+			this.viStateHandler.canCalculateTargetState(action, count, charsRead)
+		) {
 			const state = this.options.getViState();
-			const stateChanged = this.updateState(state, keyAction.slice(3), count);
+			const stateChanged = this.applyActionToState(state, action, count, charsRead);
 			stateChanged && this.emitEvent('state-change', { state });
 		}
 	}
 
-	updateState(state, diff, count = 1) {
-		if (typeof diff === 'string') {
-			diff = this.viStateHandler.getDiffForKeybinding(diff, state, count);
-		}
+	setState(state, target) {
+		return this.viStateHandler.setState(...arguments);
+	}
 
-		return this.viStateHandler.changeState(state, diff);
+	applyActionToState(state, action, count, charsRead) {
+		return this.viStateHandler.applyActionToState(...arguments);
 	}
 
 	// TODO: should this method return a value or emit an event?
@@ -255,7 +258,7 @@ class Vats extends EventEmitter {
 	}
 
 	destroy() {
-		const destroyables = ['keymapper', 'promptMode', 'viStateHandler', 'searcher'];
+		const destroyables = ['inputHandler', 'promptMode', 'viStateHandler', 'searcher'];
 		for (const instanceKey of destroyables) {
 			if (this[instanceKey]) {
 				this[instanceKey].destroy();
