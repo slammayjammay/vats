@@ -10,15 +10,8 @@ const Searcher = require('./Searcher');
 const PromptMode = require('./PromptMode');
 
 const DEFAULT_OPTIONS = {
-	// enter CommandMode/PromptMode on these keys
-	promptModeKeys: [':', '/', '?'],
-
 	// should CommandMode be on bottom left of screen like vim?
 	promptModeOnBottom: true,
-
-	// alias these keys to these commands. if no alias is found, the key is not
-	// included in the resulting command string.
-	commandModeKeyMap: { '/': 'search-next', '?': 'search-previous' },
 
 	// @type function, optional
 	getViState: null,
@@ -188,35 +181,17 @@ class Vats extends EventEmitter {
 
 		const keymapData = this.inputHandler.handleKey(char, key);
 
-		if (this.inputHandler.isReading()) {
-			return;
-		}
-
-		if (keymapData) {
+		if (keymapData && !this.inputHandler.isReading()) {
 			this.emitEvent('keybinding', keymapData);
-		} else if (this.options.promptModeKeys.includes(char)) {
-			this.emitEvent('command-mode:enter');
-
-			this.enterCommandMode({
-				prompt: char,
-				onBottom: this.options.promptModeOnBottom
-			}).then(data => {
-				this.emitEvent('command-mode:exit');
-
-				if (this.options.commandModeKeyMap[char]) {
-					data.argv._.unshift(this.options.commandModeKeyMap[char]);
-				}
-
-				this.emitEvent('command', data);
-			}).catch(e => console.log(e));
 		}
 	}
 
-	_defaultBehaviorForKeybinding({ keyString, action, count, charsRead }) {
+	_defaultBehaviorForKeybinding({ keyString, action, count, charsRead, ...rest }) {
 		const match = /^search-(next|previous)$/.exec(action);
 		if (match && this._lastSearchQuery) {
 			const dir = match[1] === 'next' ? 1 : -1;
 			this._search(this._lastSearchQuery, count * dir * this._lastSearchDir);
+			return;
 		}
 
 		if (
@@ -226,6 +201,20 @@ class Vats extends EventEmitter {
 			const state = this.options.getViState();
 			const stateChanged = this.applyActionToState(state, action, count, charsRead);
 			stateChanged && this.emitEvent('state-change', { state });
+			return;
+		}
+
+		if (action === 'enter-command-mode') {
+			this.emitEvent('command-mode:enter');
+
+			this.enterCommandMode({
+				prompt: keyString,
+				onBottom: this.options.promptModeOnBottom
+			}).then(data => {
+				this.emitEvent('command-mode:exit');
+				rest.commandAlias && data.argv._.unshift(rest.commandAlias);
+				this.emitEvent('command', data);
+			}).catch(console.log);
 		}
 	}
 

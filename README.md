@@ -54,14 +54,7 @@ List of events emitted:
 
 ## Options
 
-- `promptModeKeys` -- Enters prompt/command mode when these keys are pressed. Default: `:`, `/`, `?`.
-
 - `promptModeOnBottom` -- Prompt/command mode is on bottom left of the screen (like vim). Default: `true`.
-
-- `commandModeKeyMap` -- When CommandMode is entered on these keys, the values will be the commands they send. Default:
-  - `/`: `search-next`
-  - `?`: `search-previous`
-
 
 - `getViState` -- A function that returns a `ViState`. Optional. If given, any recognized keybindings will update this state.
 
@@ -81,5 +74,8 @@ Key strings can be combined with spaces (see the keymap `g g`). The resulting ac
 Actions can be strings or objects. If an object is given, its signature is:
   - `action`: (string) the action to send
   - `read`: (string, optional) the name of the read function for additional characters
+  - `...rest`: additional properties to include in the keybinding object
 
 If `read` is given, `InputHandler` will delay firing a keybinding event and instead read an indefinite number of characters. The number of characters read and the characters sent is up to the read function. For more info on read functions, see the `InputHandler#readOneChar` function and the `InputHandler.readFunctions` map.
+
+Any other properties in the given object will be included in the keybinding event. `action` and `read` will be stripped out.

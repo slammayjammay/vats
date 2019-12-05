@@ -237,8 +237,19 @@ class InputHandler {
 	getKeybindingObject(input, charsRead = '') {
 		const { keyString, count } = this.parseInput(input);
 		const val = this.keymap.get(keyString);
-		const action = typeof val === 'string' ? val : val.action;
-		return { keyString, action, count, charsRead };
+
+		let action;
+		let rest = {};
+
+		if (typeof val === 'string') {
+			action = val;
+		} else {
+			const { action: keyAction, read, ...more } = val;
+			action = keyAction;
+			rest = more;
+		}
+
+		return { keyString, action, count, charsRead, ...rest };
 	}
 
 	parseInput(input) {

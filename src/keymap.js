@@ -39,5 +39,9 @@ module.exports = new Map([
 	['n', 'search-next'],
 	['N', 'search-previous'],
 
-	['f', { action: 'find', read: 'readOneChar' }]
+	['f', { action: 'find', read: 'readOneChar' }],
+
+	[':', { action: 'enter-command-mode', commandAlias: null }],
+	['/', { action: 'enter-command-mode', commandAlias: 'search-next' }],
+	['?', { action: 'enter-command-mode', commandAlias: 'search-previous' }],
 ]);
