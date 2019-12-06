@@ -32,6 +32,12 @@ class ViStateHandler {
 		]);
 	}
 
+	has() { return this.map.has(...arguments); }
+	get() { return this.map.get(...arguments); }
+	set() { return this.map.set(...arguments); }
+	clear() { return this.map.clear(...arguments); }
+	delete() { return this.map.delete(...arguments); }
+
 	/**
 	 * Returns a boolean whether a target state can be calculated. By default, a
 	 * calculation can be done if the only input is an existing state, a key

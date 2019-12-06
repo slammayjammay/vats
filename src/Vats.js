@@ -226,6 +226,30 @@ class Vats extends EventEmitter {
 		return this.viStateHandler.applyActionToState(...arguments);
 	}
 
+	/**
+	 * Maps the pressed key(s) to the given action, and optionally specifies how
+	 * to modify viState.
+	 *
+	 * Example:
+	 * setKeymap('j', 'cursor-down', (state, count) => ({ cursorY: state.cursorY + count }));
+	 * // - fire a keybinding event when "j" is pressed
+	 * // - keybinding action is "cursor-down"
+	 * // - when this keybinding is fired, modify viState to values returned by
+	 * //   the callback
+	 *
+	 * @param {string} keyString - The character string to match key(s) against.
+	 * @param {string} action - The keybinding action to fire.
+	 * @param {function} [getTargetStateFn] - The function to determine the
+	 * desired target state. Only applicable if `options.getViState` is given.
+	 */
+	setKeymap(keyString, action, getTargetStateFn) {
+		this.inputHandler.set(keyString, action);
+
+		if (typeof getTargetStateFn === 'function') {
+			this.viStateHandler.set(action, getTargetStateFn);
+		}
+	}
+
 	// TODO: should this method return a value or emit an event?
 	search(query, count = 1) {
 		this._lastSearchDir = count > 0 ? 1 : -1;
@@ -244,22 +268,6 @@ class Vats extends EventEmitter {
 		this.emitEvent('search', { index });
 
 		this._lastSearchQuery = query;
-	}
-
-	destroy() {
-		const destroyables = ['inputHandler', 'promptMode', 'viStateHandler', 'searcher'];
-		for (const instanceKey of destroyables) {
-			if (this[instanceKey]) {
-				this[instanceKey].destroy();
-				this[instanceKey] = null;
-			}
-		}
-
-		this.options = this._count = null;
-
-		process.stdin.removeListener('keypress', this._onKeypress);
-
-		this.removeAllListeners();
 	}
 
 	exit() {
@@ -297,6 +305,22 @@ class Vats extends EventEmitter {
 	_beforeSigStop() {
 		process.stdin.setRawMode(false);
 		this.emitEvent('before-sig-stop');
+	}
+
+	destroy() {
+		const destroyables = ['inputHandler', 'promptMode', 'viStateHandler', 'searcher'];
+		for (const instanceKey of destroyables) {
+			if (this[instanceKey]) {
+				this[instanceKey].destroy();
+				this[instanceKey] = null;
+			}
+		}
+
+		this.options = this._count = null;
+
+		process.stdin.removeListener('keypress', this._onKeypress);
+
+		this.removeAllListeners();
 	}
 }
 
