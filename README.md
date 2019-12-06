@@ -10,7 +10,7 @@ For interactive terminal applications that want to use some or all of VI functio
 
 ## Features
 - event-based (see Events section below)
-- maps common VI keybindings and allows custom
+- maps common VI keybindings and allows custom maps
 - calculates state (cursor positions, scroll position, etc.)
 - implements VI modes:
   - normal mode
@@ -22,7 +22,6 @@ For interactive terminal applications that want to use some or all of VI functio
 - searching
 
 ## Features TODO
-- fleshed out keymaps
 - registers
 
 ## Events
@@ -51,10 +50,9 @@ List of events emitted:
 
 - `before-sig-stop` -- essentially a SIGSTOP signal. SIGSTOP signals cannot be caught or ignored, however certain keypresses ("ctrl+z") commonly send this signal. this event is emitted when those keys are pressed, and then the process is stopped immediately afterward.
 
-
 ## Options
 
-- `promptModeOnBottom` -- Prompt/command mode is on bottom left of the screen (like vim). Default: `true`.
+- `commandModeOnBottom` -- CommandMode is on bottom left of the screen (like vim). Default: `true`.
 
 - `getViState` -- A function that returns a `ViState`. Optional. If given, any recognized keybindings will update this state.
 
@@ -62,10 +60,23 @@ List of events emitted:
 
 - `getSearchOptions` -- A function that returns options that will be passed to the `Searcher` instance. Optional.
 
+## Vi State
+A Vi state is an object with the following properties:
+- `documentWidth`: the entire width of navigable content
+- `documentHeight`: the entire height of navigable content
+- `windowWidth`: the width of visible content
+- `windowHeight`: the height of visible content
+- `cursorX`: the cursor's horizontal position
+- `cursorY`: the cursor's vertical position
+- `scrollX`: the window's offset from the left
+- `scrollY`: the window's offset from the top
+
+See `ViStateHandler` for how state is updated. It ensures that the cursor always remains inside the window, and the window always remains inside the document.
+
 ## Keymaps
 See `keymap.js` for default keybindings. It exports a `Map` instance with keypress strings as keys and actions as values. `'j': 'cursor-down'`, `'DOWN_ARROW': 'cursor-down'`.
 
-Keys strings must be formatted correctly. The `InputHandler#formatCharKey` will take in the `char` and `key` parameters emitted by Node and return a correctly formatted string. For example: when pressing the up arrow: `char` is `undefined` and `key.name` is `up`. The formatted string becomes `UP_ARROW`.
+Keys strings must be formatted correctly. The `InputHandler#formatCharKey` will take in the `char` and `key` parameters emitted by Node and return a correctly formatted string.
 
 Meta keys must be in the correct order. if you press `j` while holding the keys `option`, `meta`, `shift`, and `ctrl`, the formatted string becomes `ctrl+option+meta+shift+j`, with the meta keys listed in that order. This formatting is also done inside `InputHandler#formatCharKey`. Note that the formatted string for the char `N` is `N`, not `shift+n`. Similarly, the key `!` is valid whereas `shift+1` is not.
 

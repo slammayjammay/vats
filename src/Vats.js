@@ -11,7 +11,7 @@ const PromptMode = require('./PromptMode');
 
 const DEFAULT_OPTIONS = {
 	// should CommandMode be on bottom left of screen like vim?
-	promptModeOnBottom: true,
+	commandModeOnBottom: true,
 
 	// @type function, optional
 	getViState: null,
@@ -209,7 +209,7 @@ class Vats extends EventEmitter {
 
 			this.enterCommandMode({
 				prompt: keyString,
-				onBottom: this.options.promptModeOnBottom
+				onBottom: this.options.commandModeOnBottom
 			}).then(data => {
 				this.emitEvent('command-mode:exit');
 				rest.commandAlias && data.argv._.unshift(rest.commandAlias);
