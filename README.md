@@ -25,30 +25,54 @@ For interactive terminal applications that want to use some or all of VI functio
 - registers
 
 ## Events
-List of events emitted:
-- `command` -- a command is entered via CommandMode.
+For all events, a single object is passed to listeners. All events share the `name` (string) and `preventDefault` (function) properties.
 
-- `command-mode:enter` -- emitted before entering CommandMode.
+- `command`: a command is entered via CommandMode.
+  - `input`: (string) what the user entered
+  - `argv`: (object) the input parsed by [minimist](https://www.npmjs.com/package/minimist)
 
-- `command-mode:exit` -- emitted after entering CommandMode.
 
-- `keypress` -- when the user presses a key.
+- `command-mode:enter`: emitted before entering CommandMode.
 
-- `keybinding` -- a recognized vi keybinding.
+- `command-mode:exit`: emitted after entering CommandMode.
 
-- `search` -- only if `getSearchableItems` option is given. will search items and emit the found index when searching with vi keybindings.
+- `keypress`: when the user presses a key.
+  - `formatted`: (string) the formatted key string.
+  - `char`: (string|undefined) argument from Node's `keypress` event
+  - `key`: (object) argument from Node's `keypress` event
 
-- `state-change` -- only if `getViState` option is given. when vi keybindings are recognized, they will automatically change the provided state.
 
-- `close` -- when the program ends.
+- `keybinding`: a recognized vi keybinding.
+  - `keyString`: (string) the string of character(s) entered.
+  - `action`: (string) the resulting keybinding action fired.
+  - `count`: (number) how many times the action should be performed.
+  - `charsRead`: (string) characters, if any, that were read by the keybinding.
+  - `...rest`: (optional) any additional arguments provided.
+  - TODO: `register`
 
-- `SIGINT` -- a SIGINT signal was detected.
 
-- `SIGCONT` -- a SIGCONT signal was detected.
+- `search`: only if `getSearchableItems` option is given. will search items and emit the found index when searching with vi keybindings.
+  - `index`: if an item is found, returns the item's index. otherwise `-1`.
 
-- `SIGTERM` -- a SIGTERM signal was detected.
+
+- `state-change`: only if `getViState` option is given. when vi keybindings are recognized, they will automatically change the provided state.
+  - `state`: (object) the vi state.
+
+
+- `close`: when the program ends.
+
+- `SIGINT`: a SIGINT signal was detected.
+
+- `SIGCONT`: a SIGCONT signal was detected.
+
+- `SIGTERM`: a SIGTERM signal was detected.
 
 - `before-sig-stop` -- essentially a SIGSTOP signal. SIGSTOP signals cannot be caught or ignored, however certain keypresses ("ctrl+z") commonly send this signal. this event is emitted when those keys are pressed, and then the process is stopped immediately afterward.
+
+Some events have default behavior attached to them, which can be stopped by calling `preventDefault`:
+- `command`: performs a search if the command is `search`, `search-next`, or `search-previous`.
+- `keypress`: sends SIGINT signal on `ctrl+c`; sends SIGSTOP signal on `ctrl+z`; checks if a keybinding can be emitted.
+- `keybinding`: performs a search if keybinding is `search-next` or `search-previous`; updates vi state per keybinding action (if `options.getViState` is given); enters CommandMode if char is `:`, `/`, or `?`.
 
 ## Options
 
@@ -83,9 +107,9 @@ Meta keys must be in the correct order. if you press `j` while holding the keys 
 Key strings can be combined with spaces (see the keymap `g g`). The resulting action will be fired when the user pressed the `g` key twice. Note that if the keymap `g g` is set along with `g`, the desired behavior is ambiguous -- `g` will end up being ignored (as a `keybinding`. It's still available in `keypress` events however).
 
 Actions can be strings or objects. If an object is given, its signature is:
-  - `action`: (string) the action to send
-  - `read`: (string, optional) the name of the read function for additional characters
-  - `...rest`: additional properties to include in the keybinding object
+- `action`: (string) the action to send
+- `read`: (string, optional) the name of the read function for additional characters
+- `...rest`: additional properties to include in the keybinding object
 
 If `read` is given, `InputHandler` will delay firing a keybinding event and instead read an indefinite number of characters. The number of characters read and the characters sent is up to the read function. For more info on read functions, see the `InputHandler#readOneChar` function and the `InputHandler.readFunctions` map.
 

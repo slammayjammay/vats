@@ -1,6 +1,6 @@
 class Event {
-	constructor(type, data = {}) {
-		this.type = type;
+	constructor(name, data = {}) {
+		this.name = name;
 		Object.assign(this, data);
 
 		this.preventDefault = this.preventDefault.bind(this);

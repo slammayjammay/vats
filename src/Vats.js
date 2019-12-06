@@ -59,7 +59,8 @@ class Vats extends EventEmitter {
 	}
 
 	_onKeypress(char, key) {
-		this.emitEvent('keypress', { char, key });
+		const formatted = this.inputHandler.formatCharKey(char, key);
+		this.emitEvent('keypress', { char, key, formatted });
 	}
 
 	setRawMode() {
@@ -141,11 +142,11 @@ class Vats extends EventEmitter {
 	 * default behavior.
 	 */
 	_defaultBehaviorForEvent(event) {
-		if (event.type === 'command') {
+		if (event.name === 'command') {
 			this._defaultBehaviorForCommand(event);
-		} else if (event.type === 'keypress') {
+		} else if (event.name === 'keypress') {
 			this._defaultBehaviorForKeypress(event);
-		} else if (event.type === 'keybinding') {
+		} else if (event.name === 'keybinding') {
 			this._defaultBehaviorForKeybinding(event);
 		}
 	}
@@ -157,11 +158,12 @@ class Vats extends EventEmitter {
 			return;
 		}
 
-		if (command.slice(0, 6) === 'search') {
-			const count = command === 'search-next' ? 1 : -1;
+		const match = /^search|search-next|search-previous/.exec(command);
+		if (this.options.getSearchableItems && match) {
+			const count = /search-next/.test(command) ? 1 : -1;
 			const query = argv._.slice(1).join(' ');
 
-			this.search(query, count);
+			this._search(query, count, true);
 		}
 	}
 
@@ -250,24 +252,40 @@ class Vats extends EventEmitter {
 		}
 	}
 
-	// TODO: should this method return a value or emit an event?
-	search(query, count = 1) {
-		this._lastSearchDir = count > 0 ? 1 : -1;
-		return this._search(query, count);
-	}
-
-	_search(query, count = 1) {
-		if (!this.options.getSearchableItems) {
-			return;
+	/**
+	 * Public use only.
+	 */
+	search(query, items, options) {
+		if (!items && this.getSearchableItems) {
+			items = this.getSearchableItems();
+		}
+		if (!options && this.getSearchOptions) {
+			options = this.getSearchOptions();
 		}
 
+		return this.searcher.search(items, query, options);
+	}
+
+	/**
+	 * Internal use only. Will always emit 'search' event.
+	 */
+	_search(query, count = 1, changeDirection) {
 		const items = this.options.getSearchableItems();
+
+		if (!items) {
+			throw new Error(`No searchable items given (received: "${items}").`);
+		}
+
 		const options = this.options.getSearchOptions && this.options.getSearchOptions(items);
 		const index = this.searcher.search(items, query, { count, ...options });
 
 		this.emitEvent('search', { index });
 
 		this._lastSearchQuery = query;
+
+		if (changeDirection) {
+			this._lastSearchDir = count > 0 ? 1 : -1;
+		}
 	}
 
 	exit() {

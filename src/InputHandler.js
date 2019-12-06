@@ -1,6 +1,6 @@
-const SHIFTABLE_KEYS = [
+const SHIFTABLE_KEYS = new Set([
 	'escape', 'return', 'tab', 'backspace', 'up', 'down', 'left', 'right'
-];
+]);
 
 const NODE_KEY_CONVERSION = {
 	up: 'UP_ARROW',
@@ -220,7 +220,7 @@ class InputHandler {
 		// also, node sometimes does not set `key.shift` as true -- e.g. on
 		// shift+enter, `key.shift` is false. That is node's problem -- enter
 		// is still a "shiftable" key in this context.
-		if (key.shift && this.constructor.SHIFTABLE_KEYS.includes(key.name)) {
+		if (key.shift && this.constructor.SHIFTABLE_KEYS.has(key.name)) {
 			keyString = `shift+${keyString}`;
 		}
 
