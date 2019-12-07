@@ -1,4 +1,4 @@
 module.exports = {
 	Vats: require('./Vats'),
-	keymap: require('./keymap')
+	keybindings: require('./keybindings')
 };

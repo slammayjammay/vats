@@ -3,21 +3,18 @@ const SHIFTABLE_KEYS = new Set([
 ]);
 
 const NODE_KEY_CONVERSION = {
-	up: 'UP_ARROW',
-	down: 'DOWN_ARROW',
-	left: 'LEFT_ARROW',
-	right: 'RIGHT_ARROW',
 	return: 'enter'
 };
 
 /**
- * See `keymap.js` for list of all keymaps.
+ * See `keybinding.js` for list of all keybindings.
  */
 class InputHandler {
 	/**
-	 * When creating a keymap, prepending "shift+" only makes sense when these
-	 * special keys are pressed. When normal keys are pressed, just add that
-	 * character instead. For example, "N" is valid whereas "shift+n" is not.
+	 * When creating a keybinding, prepending "shift+" only makes sense when
+	 * these special keys are pressed. When normal keys are pressed, just add
+	 * that character instead. For example, "N" is valid whereas "shift+n" is
+	 * not.
 	 */
 	static get SHIFTABLE_KEYS() {
 		return SHIFTABLE_KEYS;
@@ -39,43 +36,42 @@ class InputHandler {
 	}
 
 	constructor() {
-		this.readOneChar = this.readOneChar.bind(this);
-
+		this._charsEntered = [];
 		this._input = '';
 
-		this.readFunctions = new Map();
-		this.keymap = new Map();
+		this.map = new Map();
 
 		this._inputTree = null;
 		this._inputNode = null;
 
-		this._isReading = false;
-
-		this.readFunctions.set('readOneChar', this.readOneChar);
+		this.isReading = false;
+		this._currentKeyString = null;
+		this._currentKeyVal = null;
+		this._readResults = {};
 	}
 
 	/**
 	 * Merges the given map with the existing one.
-	 * @param {map} map - The keymap to marge.
+	 * @param {map} map - The keybinding map to marge.
 	 */
-	mergeKeymap(map) {
-		this.keymap = new Map([...this.keymap, ...map]);
-		this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
+	mergeKeybinding(map) {
+		this.map = new Map([...this.map, ...map]);
+		this._inputNode = this._inputTree = this._constructInputTree(this.map);
 	}
 
-	get() { return this.keymap.get(...arguments); }
+	get() { return this.map.get(...arguments); }
 
-	has() { return this.keymap.has(...arguments); }
+	has() { return this.map.has(...arguments); }
 
 	set() {
-		const ret = this.keymap.set(...arguments);
-		this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
+		const ret = this.map.set(...arguments);
+		this._inputNode = this._inputTree = this._constructInputTree(this.map);
 		return ret;
 	}
 
 	delete() {
-		if (this.keymap.delete(...arguments)) {
-			this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
+		if (this.map.delete(...arguments)) {
+			this._inputNode = this._inputTree = this._constructInputTree(this.map);
 			return true;
 		}
 
@@ -83,14 +79,14 @@ class InputHandler {
 	}
 
 	clear() {
-		this.keymap.clear(...arguments);
-		this._inputNode = this._inputTree = this._constructInputTree(this.keymap);
+		this.map.clear(...arguments);
+		this._inputNode = this._inputTree = this._constructInputTree(this.map);
 	}
 
-	_constructInputTree(keymap) {
+	_constructInputTree(map) {
 		const tree = {};
 
-		for (const [key, val] of keymap.entries()) {
+		for (const [key, val] of map.entries()) {
 			if (key.includes(' ')) {
 				const chars = key.split(' ');
 				chars.pop();
@@ -107,13 +103,24 @@ class InputHandler {
 		return tree;
 	}
 
-	_resetInput() {
+	_reset() {
+		this._charsEntered = [];
 		this._input = '';
 		this._inputNode = this._inputTree;
+		this.isReading = false;
+		this._currentKeyString = this._currentKeyVal = null;
+		this._readResults = {};
 	}
 
-	isReading() {
-		return this._isReading;
+	/**
+	 * TODO: able to interpret a string of inputted chars correctly
+	 */
+	parseInput(input) {
+	}
+
+	handleCharKey(char, key) {
+		const formatted = this.formatCharKey(char, key);
+		return this.handleFormatted(formatted, char, key);
 	}
 
 	/**
@@ -121,158 +128,147 @@ class InputHandler {
 	 * object. If no keybinding is found, or if additional chars are needed to
 	 * complete a keybinding, returns null.
 	 */
-	handleKey(char, key) {
-		const keypressString = this.formatCharKey(char, key);
-
-		if (this._isReading) {
-			return this.read(keypressString);
+	handleFormatted(formatted, char, key) {
+		if (this.isReading) {
+			return this.read(formatted, char, key);
 		}
 
-		this._input += keypressString;
+		this._charsEntered.push(formatted);
 
-		// an input string that consists of only numbers,
-		if (
-			/\d/.test(keypressString) &&
-			/^\d*$/.test(this._input) &&
-			!/^0$/.test(this._input) // except when 0 is pressed
-		) {
+		if (this._inputNode[formatted]) {
+			this._inputNode = this._inputNode[formatted];
+			this._input += formatted + ' ';
 			return null;
 		}
 
-		// following along a string of chars, part of a snippet
-		if (this._inputNode[keypressString]) {
-			this._inputNode = this._inputNode[keypressString];
-			this._input += ' ';
-			return null;
+		const isNumber = /^\d$/.test(formatted);
+
+		if (!isNumber) {
+			this._input += formatted;
 		}
 
-		const { keyString } = this.parseInput(this._input);
-		const val = this.keymap.get(keyString);
+		// found a keybinding
+		if (this.map.has(this._input)) {
+			this._currentKeyString = this._input;
+			this._currentKeyVal = this.map.get(this._input);
 
-		if (!val) {
-			// if nothing is found, start over
-			this._resetInput();
-		} else if (val.read) {
-			// a keybinding is found but additional characters need to be read
-			this._isReading = true;
-			this._readFunction = this.readFunctions.get(val.read);
-			if (!this._readFunction) {
-				throw new Error(`Read function "${val.read}" not found.`);
+			// need to read more chars?
+			if (this._currentKeyVal.read) {
+				this.isReading = true;
+				return null;
 			}
-		} else {
-			// return the keybinding and reset
-			const keybindingObject = this.getKeybindingObject(this._input);
-			this._resetInput();
-			return keybindingObject;
+
+			return this._getKeybindingObjectAndReset();
+		}
+
+		if (!isNumber) {
+			this._reset();
 		}
 
 		return null;
 	}
 
-	read(keypressString) {
-		const charsRead = this._readFunction(keypressString);
-		if (typeof charsRead !== 'string') {
-			return false;
+	read(formatted, char, key) {
+		this._charsEntered.push(formatted);
+
+		// until the read function returns an array of formatted keys, keep reading
+		const returnValue = this._currentKeyVal.read(formatted, char, key);
+		if (!Array.isArray(returnValue)) {
+			return null;
 		}
 
-		const keybindingObject = this.getKeybindingObject(this._input, charsRead);
-		this._resetInput();
-		this._isReading = false;
-		this._readFunction = null;
-		return keybindingObject;
-	}
+		// when done reading, store the read keys
+		this._readResults[this._currentKeyVal.action] = returnValue;
 
-	/**
-	 * A read function. This one will only read one character, used e.g. for the
-	 * "f" keybinding ("find"). Custom read functions can be defined and set
-	 * inside the readFunctions.
-	 *
-	 * @param {string} keypressString - The string representing the character
-	 * entered.
-	 * @return {boolean|string} - Return false to indicate that more characters
-	 * should be read. Return a string representing the characters read.
-	 */
-	readOneChar(keypressString) {
-		return keypressString;
+		if (!this._currentKeyVal.resume) {
+			return this._getKeybindingObjectAndReset();
+		}
+
+		this.isReading = false;
+		this._input = '';
+		this._currentKeyString = this._currentKeyVal = null;
+		this._inputNode = this._inputTree;
 	}
 
 	formatCharKey(char, key) {
-		let keyString;
+		let formatted;
 
 		if (key.ctrl || key.meta) {
-			keyString = key.name;
+			formatted = key.name;
 		} else if (char === key.sequence) {
-			keyString = char;
+			formatted = char;
 		} else {
-			keyString = key.name;
+			formatted = key.name;
 		}
 
 		if (this.constructor.NODE_KEY_CONVERSION[key.name]) {
-			keyString = this.constructor.NODE_KEY_CONVERSION[key.name];
+			formatted = this.constructor.NODE_KEY_CONVERSION[key.name];
 		}
 
 		// order matters!
-		if (key.ctrl) keyString = `ctrl+${keyString}`;
-		if (key.option) keyString = `option+${keyString}`;
-		if (key.meta && keyString !== 'escape') keyString = `meta+${keyString}`;
+		if (key.ctrl) formatted = `ctrl+${formatted}`;
+		if (key.option) formatted = `option+${formatted}`;
+		if (key.meta && formatted !== 'escape') formatted = `meta+${formatted}`;
 
 		// should not add shift when normal characters are pressed (e.g. "N").
 		// also, node sometimes does not set `key.shift` as true -- e.g. on
 		// shift+enter, `key.shift` is false. That is node's problem -- enter
 		// is still a "shiftable" key in this context.
 		if (key.shift && this.constructor.SHIFTABLE_KEYS.has(key.name)) {
-			keyString = `shift+${keyString}`;
+			formatted = `shift+${formatted}`;
 		}
 
-		return keyString;
+		return formatted;
+	}
+
+	getCountForInput(input) {
+		const match = /^(\d*)/.exec(input);
+		return match && match[1] ? parseInt(match[1]) : 1;
 	}
 
 	/**
-	 * @param {string} input
-	 * @param {string} [charsRead]
-	 * @return {Object|boolean} - If a keybinding is found, returns a keybinding
-	 * object. If no keybinding is found, or if additional chars are needed to
-	 * complete a keybinding, returns false;
+	 * Relies on internal state set by previously entered characters.
+	 *
+	 * @return {Object} obj
+	 * @prop {array} obj.charsEntered - all formatted keys for this keybinding.
+	 * @prop {string} obj.action - the keybinding action.
+	 * @prop {number} obj.count - how many times the keybinding should occur.
+	 * @prop {object} obj.readResults - object with keybinding names as keys and
+	 * a string of read chars as values.
+	 * @prop {*} ...rest - any other properties defined on the keybinding.
 	 */
-	getKeybindingObject(input, charsRead = '') {
-		const { keyString, count } = this.parseInput(input);
-		const val = this.keymap.get(keyString);
+	_getKeybindingObject() {
+		const charsEntered = this._charsEntered;
+		const count = this.getCountForInput(charsEntered);
+		const readResults = this._readResults;
 
 		let action;
-		let rest = {};
+		let rest;
 
-		if (typeof val === 'string') {
-			action = val;
+		if (typeof this._currentKeyVal === 'string') {
+			action = this._currentKeyVal;
+			rest = {};
 		} else {
-			const { action: keyAction, read, ...more } = val;
+			const { action: keyAction, read, resume, ...more } = this._currentKeyVal;
 			action = keyAction;
 			rest = more;
 		}
 
-		return { keyString, action, count, charsRead, ...rest };
+		return { charsEntered, action, count, readResults, ...rest };
 	}
 
-	parseInput(input) {
-		if (input === '0') {
-			return { keyString: '0', count: 1 };
-		}
-
-		const count = (() => {
-			const match = /^(\d*)/.exec(input);
-			return match && match[1] ? parseInt(match[1]) : 1;
-		})();
-
-		const keyString = input.replace(/^\d*/, '');
-
-		return { keyString, count };
+	_getKeybindingObjectAndReset() {
+		const keybindingObject = this._getKeybindingObject();
+		this._reset();
+		return keybindingObject;
 	}
 
 	destroy() {
-		this.readFunctions.clear();
-		this.keymap.clear();
-		this._input = null;
-		this.readFunctions = this.keymap = null;
-		this._inputTree = this._inputNode = this._isReading = null;
+		this.map.clear();
+		this.map = null;
+		this._charsEntered = this._input = null;
+		this._inputTree = this._inputNode = this.isReading = null;
+		this._currentKeyString = this._currentKeyVal = this._readResults = {};
 	}
 }
 

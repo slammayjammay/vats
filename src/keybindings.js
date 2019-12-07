@@ -7,10 +7,10 @@ module.exports = new Map([
 	['enter', 'enter'],
 	['return', 'enter'],
 
-	['UP_ARROW', 'cursor-up'],
-	['LEFT_ARROW', 'cursor-left'],
-	['RIGHT_ARROW', 'cursor-right'],
-	['DOWN_ARROW', 'cursor-down'],
+	['up', 'cursor-up'],
+	['left', 'cursor-left'],
+	['right', 'cursor-right'],
+	['down', 'cursor-down'],
 
 	['k', 'cursor-up'],
 	['h', 'cursor-left'],
@@ -39,9 +39,15 @@ module.exports = new Map([
 	['n', 'search-next'],
 	['N', 'search-previous'],
 
-	['f', { action: 'find', read: 'readOneChar' }],
+	['f', { action: 'find', read: readOneChar }],
 
 	[':', { action: 'enter-command-mode', commandAlias: null }],
 	['/', { action: 'enter-command-mode', commandAlias: 'search-next' }],
 	['?', { action: 'enter-command-mode', commandAlias: 'search-previous' }],
+
+	['"', { action: 'register', read: readOneChar, resume: true }]
 ]);
+
+function readOneChar(formattedChar, char, key) {
+	return [formattedChar];
+}

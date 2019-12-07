@@ -46,7 +46,7 @@ For all events, a single object is passed to listeners. All events share the `na
   - `keyString`: (string) the string of character(s) entered.
   - `action`: (string) the resulting keybinding action fired.
   - `count`: (number) how many times the action should be performed.
-  - `charsRead`: (string) characters, if any, that were read by the keybinding.
+  - `readResults`: (object) any characters read by a "read" function, scoped by the key action. See the `register` keybinding example below.
   - `...rest`: (optional) any additional arguments provided.
   - TODO: `register`
 
@@ -97,20 +97,43 @@ A Vi state is an object with the following properties:
 
 See `ViStateHandler` for how state is updated. It ensures that the cursor always remains inside the window, and the window always remains inside the document.
 
-## Keymaps
-See `keymap.js` for default keybindings. It exports a `Map` instance with keypress strings as keys and actions as values. `'j': 'cursor-down'`, `'DOWN_ARROW': 'cursor-down'`.
+## Keybindings
 
-Keys strings must be formatted correctly. The `InputHandler#formatCharKey` will take in the `char` and `key` parameters emitted by Node and return a correctly formatted string.
+See `keybindings.js` for default keybindings. Exports a `Map` instance with formatted keypress strings as keys and actions as values. `'j': 'cursor-down'`, `'down': 'cursor-down'`.
 
-Meta keys must be in the correct order. if you press `j` while holding the keys `option`, `meta`, `shift`, and `ctrl`, the formatted string becomes `ctrl+option+meta+shift+j`, with the meta keys listed in that order. This formatting is also done inside `InputHandler#formatCharKey`. Note that the formatted string for the char `N` is `N`, not `shift+n`. Similarly, the key `!` is valid whereas `shift+1` is not.
+### Key strings
 
-Key strings can be combined with spaces (see the keymap `g g`). The resulting action will be fired when the user pressed the `g` key twice. Note that if the keymap `g g` is set along with `g`, the desired behavior is ambiguous -- `g` will end up being ignored (as a `keybinding`. It's still available in `keypress` events however).
+Key strings must be formatted correctly. The `InputHandler#formatCharKey` will take in the `char` and `key` parameters emitted by Node and return a correctly formatted string.
 
-Actions can be strings or objects. If an object is given, its signature is:
-- `action`: (string) the action to send
-- `read`: (string, optional) the name of the read function for additional characters
-- `...rest`: additional properties to include in the keybinding object
+Meta keys must be in the correct order inside the key string and separated by plus signs (`+`). The correct order is `ctrl`, `option`, `meta`, `shift`. So the key string `ctrl+option+meta+shift+j` is valid and `shift+meta+option+ctrl+j` is not. Also, the key strings `shift+n` and `shift+1` are not valid; they should be `N` and `!`.
 
-If `read` is given, `InputHandler` will delay firing a keybinding event and instead read an indefinite number of characters. The number of characters read and the characters sent is up to the read function. For more info on read functions, see the `InputHandler#readOneChar` function and the `InputHandler.readFunctions` map.
+Key strings can be combined with spaces (see the keybinding `g g`). The resulting action will be fired when the user pressed the `g` key twice. Note that if the keybinding `g g` is set along with `g`, the desired behavior is ambiguous; the `g` keybinding will end up being ignored.
 
-Any other properties in the given object will be included in the keybinding event. `action` and `read` will be stripped out.
+### Key actions
+
+Actions can either be a string for the name of the keybinding or an object. If an object is given, its signature is:
+
+- `action`: (string) the name of the keybinding action.
+- `read`: (function, optional) the function to read additional characters.
+- `resume`: (boolean, optional) whether to continue looking for a keybinding after the read function ends (only applicable if `read` is given).
+- `...rest`: additional properties to include in the keybinding object (all properties above will be stripped out).
+
+If `read` is given, `InputHandler` will delay firing a keybinding event and instead read an indefinite number of characters. The return value of the read function will determine when to stop reading for characters and which characters to store. For as long as the return value is not an array of strings, the read function will be called for all subsequent characters. When the return value is an array of strings, the return value will be stored inside `readResults`, scoped under the keybinding action string.
+
+#### Read function example
+
+User presses `4"ap`. In Vi, paste contents of register "a" 4 times.
+
+```js
+const vats = new Vats();
+
+vats.setKeybinding('p', 'paste');
+vats.setKeybinding('"', { action: 'register', read: (key) => [key], resume: true });
+
+vats.on('keybinding', ({ charsEntered, action, count, readResults }) => {
+  console.log(charsEntered, action, count, readResults);
+  // => '4"ap', 'paste', 4, { register: 'a' }
+});
+```
+
+If the register keybinding didn't set `resume: true`, the keybinding would fire immediately after the user enters `4"a`, and the keybinding action would be `register`.

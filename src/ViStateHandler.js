@@ -47,10 +47,10 @@ class ViStateHandler {
 	 *
 	 * @param {string} action - a keybinding action.
 	 * @param {number} count - how many times the action should occur.
-	 * @param {string} charsRead - any characters read by the keybinding.
+	 * @param {object} readResults - any characters read.
 	 * @return {boolean} whether the target state can be calculated.
 	 */
-	canCalculateTargetState(action, count, charsRead) {
+	canCalculateTargetState(action, count, readResults) {
 		return this.map.has(action);
 	}
 
@@ -63,20 +63,20 @@ class ViStateHandler {
 	 * @param {object} state - the existing state.
 	 * @param {string} action - a keybinding action.
 	 * @param {number} count - how many times the action should occur.
-	 * @param {string} charsRead - any characters read by the keybinding.
+	 * @param {object} readResults - any characters read.
 	 * @return {object} the target state.
 	 */
-	calculateTargetState(state, action, count, charsRead) {
-		if (!this.canCalculateTargetState(action, count, charsRead)) {
+	calculateTargetState(state, action, count, readResults) {
+		if (!this.canCalculateTargetState(action, count, readResults)) {
 			throw new Error(`Cannot calculate state for action "${action}".`);
 		}
 
 		const fn = this.map.get(action);
-		return fn(state, count, charsRead);
+		return fn(state, count, readResults);
 	}
 
-	applyActionToState(state, action, count, charsRead) {
-		const target = this.calculateTargetState(state, action, count, charsRead);
+	applyActionToState(state, action, count, readResults) {
+		const target = this.calculateTargetState(state, action, count, readResults);
 		return this.setState(state, target);
 	}
 

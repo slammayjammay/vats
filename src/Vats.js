@@ -46,7 +46,7 @@ class Vats extends EventEmitter {
 		this.viStateHandler = new ViStateHandler();
 		this.searcher = new Searcher();
 
-		this.inputHandler.mergeKeymap(require('./keymap'));
+		this.inputHandler.mergeKeybinding(require('./keybindings'));
 
 		emitKeypressEvents(process.stdin);
 		process.stdin.resume();
@@ -181,14 +181,14 @@ class Vats extends EventEmitter {
 			return;
 		}
 
-		const keymapData = this.inputHandler.handleKey(char, key);
+		const keybindingObject = this.inputHandler.handleCharKey(char, key);
 
-		if (keymapData && !this.inputHandler.isReading()) {
-			this.emitEvent('keybinding', keymapData);
+		if (keybindingObject && !this.inputHandler.isReading) {
+			this.emitEvent('keybinding', keybindingObject);
 		}
 	}
 
-	_defaultBehaviorForKeybinding({ keyString, action, count, charsRead, ...rest }) {
+	_defaultBehaviorForKeybinding({ keyString, action, count, readResults, ...rest }) {
 		const match = /^search-(next|previous)$/.exec(action);
 		if (match && this._lastSearchQuery) {
 			const dir = match[1] === 'next' ? 1 : -1;
@@ -198,10 +198,10 @@ class Vats extends EventEmitter {
 
 		if (
 			this.options.getViState &&
-			this.viStateHandler.canCalculateTargetState(action, count, charsRead)
+			this.viStateHandler.canCalculateTargetState(action, count, readResults)
 		) {
 			const state = this.options.getViState();
-			const stateChanged = this.applyActionToState(state, action, count, charsRead);
+			const stateChanged = this.applyActionToState(state, action, count, readResults);
 			stateChanged && this.emitEvent('state-change', { state });
 			return;
 		}
@@ -224,7 +224,7 @@ class Vats extends EventEmitter {
 		return this.viStateHandler.setState(...arguments);
 	}
 
-	applyActionToState(state, action, count, charsRead) {
+	applyActionToState(state, action, count, readResults) {
 		return this.viStateHandler.applyActionToState(...arguments);
 	}
 
@@ -233,7 +233,7 @@ class Vats extends EventEmitter {
 	 * to modify viState.
 	 *
 	 * Example:
-	 * setKeymap('j', 'cursor-down', (state, count) => ({ cursorY: state.cursorY + count }));
+	 * setKeybinding('j', 'cursor-down', (state, count) => ({ cursorY: state.cursorY + count }));
 	 * // - fire a keybinding event when "j" is pressed
 	 * // - keybinding action is "cursor-down"
 	 * // - when this keybinding is fired, modify viState to values returned by
@@ -244,7 +244,7 @@ class Vats extends EventEmitter {
 	 * @param {function} [getTargetStateFn] - The function to determine the
 	 * desired target state. Only applicable if `options.getViState` is given.
 	 */
-	setKeymap(keyString, action, getTargetStateFn) {
+	setKeybinding(keyString, action, getTargetStateFn) {
 		this.inputHandler.set(keyString, action);
 
 		if (typeof getTargetStateFn === 'function') {
