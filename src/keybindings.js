@@ -1,53 +1,66 @@
-// maps keys/chars to actions. keys/chars must be carefully formatted. actions
-// can either be a string or an object with the key `action` pointing to a
-// string. the object can also contain `read`, the name of a read function, to
-// read additional characters. See README for more info.
 module.exports = new Map([
-	['escape', 'escape'],
-	['enter', 'enter'],
-	['return', 'enter'],
+	['up', { name: 'cursor-up', type: 'cursor-move' }],
+	['down', { name: 'cursor-down', type: 'cursor-move' }],
+	['left', { name: 'cursor-left', type: 'cursor-move' }],
+	['right', { name: 'cursor-right', type: 'cursor-move' }],
 
-	['up', 'cursor-up'],
-	['left', 'cursor-left'],
-	['right', 'cursor-right'],
-	['down', 'cursor-down'],
+	['k', { name: 'cursor-up', type: 'cursor-move' }],
+	['j', { name: 'cursor-down', type: 'cursor-move' }],
+	['h', { name: 'cursor-left', type: 'cursor-move' }],
+	['l', { name: 'cursor-right', type: 'cursor-move' }],
 
-	['k', 'cursor-up'],
-	['h', 'cursor-left'],
-	['l', 'cursor-right'],
-	['j', 'cursor-down'],
+	['^', { name: 'cursor-to-document-left', type: 'cursor-move' }],
+	['0', { name: 'cursor-to-document-left', type: 'cursor-move' }],
+	['$', { name: 'cursor-to-document-right', type: 'cursor-move' }],
+	['G', { name: 'cursor-to-document-bottom', type: 'cursor-move' }],
 
-	['^', 'cursor-to-document-left'],
-	['0', 'cursor-to-document-left'],
-	['$', 'cursor-to-document-right'],
-	['g g', 'cursor-to-document-top'],
-	['G', 'cursor-to-document-bottom'],
+	['H', { name: 'cursor-to-window-top', type: 'cursor-move' }],
+	['M', { name: 'cursor-to-window-middle', type: 'cursor-move' }],
+	['L', { name: 'cursor-to-window-bottom', type: 'cursor-move' }],
 
-	['H', 'cursor-to-window-top'],
-	['M', 'cursor-to-window-middle'],
-	['L', 'cursor-to-window-bottom'],
+	['ctrl+f', { name: 'scroll-full-window-down', type: 'cursor-move' }],
+	['ctrl+b', { name: 'scroll-full-window-up', type: 'cursor-move' }],
+	['ctrl+d', { name: 'scroll-half-window-down', type: 'cursor-move' }],
+	['ctrl+u', { name: 'scroll-half-window-up', type: 'cursor-move' }],
 
-	['ctrl+f', 'scroll-full-window-down'],
-	['ctrl+b', 'scroll-full-window-up'],
-	['ctrl+d', 'scroll-half-window-down'],
-	['ctrl+u', 'scroll-half-window-up'],
+	[':', { name: 'enter-command-mode', type: 'command-mode' }],
+	['/', { name: 'enter-command-mode', type: 'command-mode', command: 'search-next' }],
+	['?', { name: 'enter-command-mode', type: 'command-mode', command: 'search-previous' }],
 
-	['z t', 'scroll-cursor-to-window-top'],
-	['z z', 'scroll-cursor-to-window-middle'],
-	['z b', 'scroll-cursor-to-window-bottom'],
+	['n', { name: 'search-next', type: 'cursor-move' }],
+	['N', { name: 'search-previous', type: 'cursor-move' }],
 
-	['n', 'search-next'],
-	['N', 'search-previous'],
+	['g', {
+		keybindings: new Map([
+			['g', { name: 'cursor-to-document-top', type: 'cursor-move' }]
+		])
+	}],
 
-	['f', { action: 'find', read: readOneChar }],
+	['z', {
+		keybindings: new Map([
+			['t', { name: 'scroll-cursor-to-window-top', type: 'cursor-move' }],
+			['z', { name: 'scroll-cursor-to-window-middle', type: 'cursor-move' }],
+			['b', { name: 'scroll-cursor-to-window-bottom', type: 'cursor-move' }],
+		])
+	}],
 
-	[':', { action: 'enter-command-mode', commandAlias: null }],
-	['/', { action: 'enter-command-mode', commandAlias: 'search-next' }],
-	['?', { action: 'enter-command-mode', commandAlias: 'search-previous' }],
+	['f', {
+		name: 'find',
+		behavior: ({ read, done }, kb) => {
+			read(1, keys => {
+				kb.store.find = keys[0];
+				done();
+			});
+		}
+	}],
 
-	['"', { action: 'register', read: readOneChar, resume: true }]
+	['"', {
+		name: 'register',
+		behavior: ({ read, done }, kb) => {
+			read(1, keys => {
+				kb.store.register = keys[0];
+				done();
+			});
+		}
+	}]
 ]);
-
-function readOneChar(formattedChar, char, key) {
-	return [formattedChar];
-}

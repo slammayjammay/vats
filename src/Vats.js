@@ -3,11 +3,13 @@ const { emitKeypressEvents } = require('readline');
 const minimist = require('minimist');
 const { parseArgsStringToArgv } = require('string-argv');
 const ansiEscapes = require('ansi-escapes');
+const { Keybinder } = require('../../composable-keybindings');
+const NodeListener = require('../../composable-keybindings/src/utils/NodeListener');
 const Event = require('./Event');
-const InputHandler = require('./InputHandler');
 const ViStateHandler = require('./ViStateHandler');
 const Searcher = require('./Searcher');
 const PromptMode = require('./PromptMode');
+const keybindings = require('./keybindings');
 
 const DEFAULT_OPTIONS = {
 	// should CommandMode be on bottom left of screen like vim?
@@ -20,12 +22,10 @@ const DEFAULT_OPTIONS = {
 	getSearchableItems: null,
 
 	// @type function, optional
+	// TODO: meh
 	getSearchOptions: null
 };
 
-/**
- * TODO: registers
- */
 class Vats extends EventEmitter {
 	constructor(options = {}) {
 		super();
@@ -33,6 +33,7 @@ class Vats extends EventEmitter {
 		this.options = { ...DEFAULT_OPTIONS, ...options };
 
 		this._onKeypress = this._onKeypress.bind(this);
+		this._onKeybinding = this._onKeybinding.bind(this);
 		this._onSigTerm = this._onSigTerm.bind(this);
 		this._onSigInt = this._onSigInt.bind(this);
 		this._onSigCont = this._onSigCont.bind(this);
@@ -41,55 +42,29 @@ class Vats extends EventEmitter {
 		this._lastSearchQuery = null;
 		this._lastSearchDir = 1;
 
-		this.inputHandler = new InputHandler();
+		this.keybinder = new Keybinder(keybindings, this._onKeybinding);
 		this.promptMode = new PromptMode();
 		this.viStateHandler = new ViStateHandler();
 		this.searcher = new Searcher();
 
-		this.inputHandler.mergeKeybinding(require('./keybindings'));
-
-		emitKeypressEvents(process.stdin);
-		process.stdin.resume();
-		this.addKeypressListeners();
-		this.setRawMode(true);
+		this.nodeListener = new NodeListener(this._onKeypress, {
+			autoFormat: true,
+			onSigStop: this._onSigStop
+		});
 
 		process.on('SIGTERM', this._onSigTerm);
 		process.on('SIGINT', this._onSigInt);
 		process.on('SIGCONT', this._onSigCont);
 	}
 
-	_onKeypress(char, key) {
-		const formatted = this.inputHandler.formatCharKey(char, key);
-		this.emitEvent('keypress', { char, key, formatted });
-	}
-
-	setRawMode() {
-		// will cause keypress events not to fire
-		return process.stdin.setRawMode(...arguments);
-	}
-
-	removeKeypressListeners() {
-		// removes SIGINT listening!
-		process.stdin.removeListener('keypress', this._onKeypress);
-		this.isKeypressEnabled = false;
-	}
-
-	addKeypressListeners() {
-		process.stdin.addListener('keypress', this._onKeypress);
-		this.isKeypressEnabled = true;
-	}
-
 	async prompt(promptModeOptions) {
-		const wasKeypressEnabled = this.isKeypressEnabled;
-
-		wasKeypressEnabled && this.removeKeypressListeners();
+		this.nodeListener.end();
 		const input = await this.promptMode.run(promptModeOptions);
-		wasKeypressEnabled && this.addKeypressListeners();
-
+		this.nodeListener.start();
 		return input;
 	}
 
-	async enterCommandMode(promptModeOptions) {
+	async enterCommandMode(promptModeOptions = {}) {
 		promptModeOptions = {
 			cancelWhenEmpty: true,
 			onBottom: true,
@@ -109,10 +84,7 @@ class Vats extends EventEmitter {
 			ansiEscapes.cursorRestorePosition
 		);
 
-		return {
-			input,
-			argv: this.parseArguments(input)
-		};
+		return { input, argv: this.parseArguments(input) };
 	}
 
 	parseArguments(string) {
@@ -128,12 +100,8 @@ class Vats extends EventEmitter {
 	 */
 	emitEvent(eventName, data = {}) {
 		const event = new Event(eventName, data);
-
 		this.emit(eventName, event);
-
-		if (!event.isDefaultPrevented()) {
-			this._defaultBehaviorForEvent(event);
-		}
+		!event.isDefaultPrevented() && this._defaultBehaviorForEvent(event);
 	}
 
 	/**
@@ -158,74 +126,64 @@ class Vats extends EventEmitter {
 			return;
 		}
 
-		const match = /^search|search-next|search-previous/.exec(command);
+		const match = /^search|search-next|search-previous/.test(command);
 		if (this.options.getSearchableItems && match) {
-			const count = /search-next/.test(command) ? 1 : -1;
 			const query = argv._.slice(1).join(' ');
+			const count = /search-next/.test(command) ? 1 : -1;
 
 			this._search(query, count, true);
 		}
 	}
 
+	_onKeypress(char, key) {
+		this.emitEvent('keypress', { char, key });
+	}
+
 	_defaultBehaviorForKeypress({ char, key }) {
-		// ctrl+c -- SIGINT
-		if (key.sequence === '\u0003') {
-			process.kill(process.pid, 'SIGINT');
-			return;
-		}
+		this.keybinder.handleKey(key.formatted);
+	}
 
-		// ctrl+z -- SIGSTOP
-		if (key.sequence === '\u001a') {
-			this._beforeSigStop();
-			process.kill(process.pid, 'SIGSTOP');
-			return;
-		}
+	_onKeybinding(type, kb, status) {
+		type === 'keybinding' && this.emitEvent('keybinding', { kb });
+	}
 
-		const keybindingObject = this.inputHandler.handleCharKey(char, key);
-
-		if (keybindingObject && !this.inputHandler.isReading) {
-			this.emitEvent('keybinding', keybindingObject);
+	_defaultBehaviorForKeybinding({ kb }) {
+		if (/^search-(next|previous)$/.test(kb.action.name) && this._lastSearchQuery) {
+			this._onKeybindingSearch(kb);
+		} else if (this.options.getViState && this.viStateHandler.map.has(kb.action.name)) {
+			this._onKeybindingChangeState(kb);
+		} else if (kb.action.name === 'enter-command-mode') {
+			this._onKeybindingCommandMode(kb);
 		}
 	}
 
-	_defaultBehaviorForKeybinding({ keyString, action, count, readResults, ...rest }) {
-		const match = /^search-(next|previous)$/.exec(action);
-		if (match && this._lastSearchQuery) {
-			const dir = match[1] === 'next' ? 1 : -1;
-			this._search(this._lastSearchQuery, count * dir * this._lastSearchDir);
-			return;
-		}
+	_onKeybindingSearch(kb) {
+		const match = /^search-(next|previous)$/.exec(kb.action.name);
+		const dir = match[1] === 'next' ? 1 : -1;
+		this._search(this._lastSearchQuery, kb.count * dir * this._lastSearchDir);
+	}
 
-		if (
-			this.options.getViState &&
-			this.viStateHandler.canCalculateTargetState(action, count, readResults)
-		) {
-			const state = this.options.getViState();
-			const stateChanged = this.applyActionToState(state, action, count, readResults);
-			stateChanged && this.emitEvent('state-change', { state });
-			return;
-		}
+	_onKeybindingChangeState(kb) {
+		const state = this.options.getViState();
+		const stateChanged = this.viStateHandler.applyAction(state, kb.action.name, kb.count);
+		stateChanged && this.emitEvent('state-change', { state });
+	}
 
-		if (action === 'enter-command-mode') {
-			this.emitEvent('command-mode:enter');
+	_onKeybindingCommandMode(kb) {
+		this.emitEvent('command-mode:enter');
 
-			this.enterCommandMode({
-				prompt: keyString,
-				onBottom: this.options.commandModeOnBottom
-			}).then(data => {
-				this.emitEvent('command-mode:exit');
-				rest.commandAlias && data.argv._.unshift(rest.commandAlias);
-				this.emitEvent('command', data);
-			}).catch(console.log);
-		}
+		const prompt = kb.keys[kb.keys.length - 1];
+		const onBottom = this.options.commandModeOnBottom;
+
+		this.enterCommandMode({ prompt, onBottom }).then(data => {
+			this.emitEvent('command-mode:exit');
+			kb.action.command && data.argv._.unshift(kb.action.command);
+			this.emitEvent('command', data);
+		}).catch(console.log);
 	}
 
 	setState(state, target) {
 		return this.viStateHandler.setState(...arguments);
-	}
-
-	applyActionToState(state, action, count, readResults) {
-		return this.viStateHandler.applyActionToState(...arguments);
 	}
 
 	/**
@@ -245,7 +203,7 @@ class Vats extends EventEmitter {
 	 * desired target state. Only applicable if `options.getViState` is given.
 	 */
 	setKeybinding(keyString, action, getTargetStateFn) {
-		this.inputHandler.set(keyString, action);
+		this.keybinder.map.set(keyString, action);
 
 		if (typeof getTargetStateFn === 'function') {
 			this.viStateHandler.set(action, getTargetStateFn);
@@ -293,21 +251,18 @@ class Vats extends EventEmitter {
 	}
 
 	quit() {
-		process.stdin.setRawMode(false);
-		process.stdin.pause();
-
 		this.emitEvent('close');
-
+		this.nodeListener && this.nodeListener.end();
 		this.destroy();
 	}
 
 	_onSigTerm() {
-		this.emitEvent('SIGTERM');
+		this.emitEvent('sigterm');
 		this._onSignalTermOrInt();
 	}
 
 	_onSigInt() {
-		this.emitEvent('SIGINT');
+		this.emitEvent('sigint');
 		this._onSignalTermOrInt();
 	}
 
@@ -316,27 +271,21 @@ class Vats extends EventEmitter {
 	}
 
 	_onSigCont() {
-		process.stdin.setRawMode(true);
-		this.emitEvent('SIGCONT');
+		this.emitEvent('sigcont');
 	}
 
-	_beforeSigStop() {
-		process.stdin.setRawMode(false);
-		this.emitEvent('before-sig-stop');
+	_onSigStop() {
+		this.emitEvent('sigstop');
 	}
 
 	destroy() {
-		const destroyables = ['inputHandler', 'promptMode', 'viStateHandler', 'searcher'];
+		const destroyables = ['keybinder', 'nodeListener', 'promptMode', 'viStateHandler', 'searcher'];
 		for (const instanceKey of destroyables) {
-			if (this[instanceKey]) {
-				this[instanceKey].destroy();
-				this[instanceKey] = null;
-			}
+			this[instanceKey] && this[instanceKey].destroy();
+			this[instanceKey] = null;
 		}
 
 		this.options = this._count = null;
-
-		process.stdin.removeListener('keypress', this._onKeypress);
 
 		this.removeAllListeners();
 	}

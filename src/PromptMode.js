@@ -14,17 +14,8 @@ class CommandMode {
 		this._resolve = null;
 		this._options = null;
 
-		this.rl = createInterface({
-			input: process.stdin,
-			output: process.stdout
-		});
-
-		this._stdinListeners = process.stdin.listeners('keypress');
-		for (const listener of this._stdinListeners) {
-			process.stdin.removeListener('keypress', listener);
-		}
-
-		this.rl.close();
+		this.rl = null;
+		this._stdinListeners = null;
 	}
 
 	isRunning() {
@@ -32,12 +23,25 @@ class CommandMode {
 	}
 
 	enable() {
+		this.rl = createInterface({ input: process.stdin, output: process.stdout });
+
+		this._stdinListeners = process.stdin.listeners('keypress');
+		for (const listener of this._stdinListeners) {
+			process.stdin.removeListener('keypress', listener);
+		}
+
 		process.stdin.on('keypress', this._onKeypress);
 		this.rl.prompt();
 	}
 
 	disable() {
 		process.stdin.removeListener('keypress', this._onKeypress);
+
+		for (const listener of this._stdinListeners) {
+			process.stdin.addListener('keypress', listener);
+		}
+		this._stdinListeners = null;
+
 		this.rl.close();
 	}
 
@@ -73,22 +77,15 @@ class CommandMode {
 		const isBackspaceOnEmpty = (key.name === 'backspace' && this.rl.line.length === 0);
 		const escaped = key.name === 'escape' || (key.ctrl && key.name === 'c');
 
-		// escape
 		if (escaped || (this._options.cancelWhenEmpty && isBackspaceOnEmpty)) {
 			this.quit();
 			this.resolve('');
-			return;
-		}
-
-		// default keypress behavior
-		if (key.name !== 'return') {
+		} else if (key.name === 'return') {
+			this.quit();
+			this.resolve(this.rl.line);
+		} else {
 			this._stdinListeners.forEach(listener => listener(...arguments));
-			return;
 		}
-
-		// when enter is pressed, resolve
-		this.quit();
-		this.resolve(this.rl.line);
 	}
 
 	resolve(val) {
