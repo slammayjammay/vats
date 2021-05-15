@@ -16,6 +16,10 @@ class Searcher {
 	 * @param {string} [query]
 	 */
 	clearCache(items, query) {
+		if (!items) {
+			return this.cache.clear();
+		}
+
 		if (!this.cache.has(items)) {
 			return;
 		} else if (!query) {
