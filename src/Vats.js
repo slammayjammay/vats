@@ -1,15 +1,15 @@
-const { EventEmitter } = require('events');
-const { emitKeypressEvents } = require('readline');
-const minimist = require('minimist');
-const { parseArgsStringToArgv } = require('string-argv');
-const ansiEscapes = require('ansi-escapes');
-const { Keybinder } = require('composable-keybindings');
-const NodeListener = require('composable-keybindings/utils/NodeListener');
-const Event = require('./Event');
-const ViStateHandler = require('./ViStateHandler');
-const Searcher = require('./Searcher');
-const PromptMode = require('./PromptMode');
-const keybindings = require('./keybindings');
+import { EventEmitter } from 'events';
+import { emitKeypressEvents } from 'readline';
+import minimist from 'minimist';
+import { parseArgsStringToArgv } from 'string-argv';
+import ansiEscapes from 'ansi-escapes';
+import { Keybinder } from 'composable-keybindings';
+import NodeListener from 'composable-keybindings/NodeListener';
+import Event from './Event.js';
+import ViStateHandler from './ViStateHandler.js';
+import Searcher from './Searcher.js';
+import PromptMode from './PromptMode.js';
+import keybindings from './keybindings.js';
 
 const DEFAULT_OPTIONS = {
 	// should CommandMode be on bottom left of screen like vim?
@@ -301,4 +301,4 @@ class Vats extends EventEmitter {
 	}
 }
 
-module.exports = Vats;
+export default Vats;

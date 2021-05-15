@@ -1,4 +1,4 @@
-module.exports = new Map([
+export default new Map([
 	['escape', { name: 'escape' }],
 	['return', { name: 'return' }],
 

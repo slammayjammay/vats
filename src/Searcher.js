@@ -135,4 +135,4 @@ class Searcher {
 	}
 }
 
-module.exports = Searcher;
+export default Searcher;

@@ -1,4 +1,4 @@
-const { createInterface } = require('readline');
+import { createInterface } from 'readline';
 
 const RUN_OPTION_DEFAULTS = {
 	prompt: '',
@@ -114,4 +114,4 @@ class CommandMode {
 	}
 }
 
-module.exports = CommandMode;
+export default CommandMode;

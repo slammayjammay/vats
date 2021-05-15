@@ -219,4 +219,4 @@ class ViStateHandler {
 	}
 }
 
-module.exports = ViStateHandler;
+export default ViStateHandler;
