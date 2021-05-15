@@ -34,6 +34,7 @@ class Vats extends EventEmitter {
 
 		this._onKeypress = this._onKeypress.bind(this);
 		this._onKeybinding = this._onKeybinding.bind(this);
+		this._onSigStop = this._onSigStop.bind(this);
 		this._onSigTerm = this._onSigTerm.bind(this);
 		this._onSigInt = this._onSigInt.bind(this);
 		this._onSigCont = this._onSigCont.bind(this);
@@ -41,6 +42,7 @@ class Vats extends EventEmitter {
 		this.isKeypressEnabled = null;
 		this._lastSearchQuery = null;
 		this._lastSearchDir = 1;
+		this._isPrompting = false;
 
 		this.keybinder = new Keybinder(keybindings, this._onKeybinding);
 		this.promptMode = new PromptMode();
@@ -57,10 +59,12 @@ class Vats extends EventEmitter {
 		process.on('SIGCONT', this._onSigCont);
 	}
 
-	async prompt(promptModeOptions) {
-		this.nodeListener.end();
+	async prompt(promptModeOptions = {}) {
+		this._isPrompting = true;
+		!promptModeOptions.enableKeypressEvents && this.nodeListener.end();
 		const input = await this.promptMode.run(promptModeOptions);
 		this.nodeListener.start();
+		this._isPrompting = false;
 		return input;
 	}
 
@@ -140,6 +144,9 @@ class Vats extends EventEmitter {
 	}
 
 	_defaultBehaviorForKeypress({ char, key }) {
+		if (this._isPrompting) {
+			return;
+		}
 		this.keybinder.handleKey(key.formatted);
 	}
 
@@ -165,8 +172,9 @@ class Vats extends EventEmitter {
 
 	_onKeybindingChangeState(kb) {
 		const state = this.options.getViState();
+		const previousState = { ...state };
 		const stateChanged = this.viStateHandler.applyAction(state, kb.action.name, kb.count);
-		stateChanged && this.emitEvent('state-change', { state });
+		stateChanged && this.emitEvent('state-change', { state, previousState });
 	}
 
 	_onKeybindingCommandMode(kb) {
@@ -187,6 +195,8 @@ class Vats extends EventEmitter {
 	}
 
 	/**
+	 * TODO: this is out of date.
+	 *
 	 * Maps the pressed key(s) to the given action, and optionally specifies how
 	 * to modify viState.
 	 *
