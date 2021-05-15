@@ -1,4 +1,7 @@
 module.exports = new Map([
+	['escape', { name: 'escape' }],
+	['return', { name: 'return' }],
+
 	['up', { name: 'cursor-up', type: 'cursor-move' }],
 	['down', { name: 'cursor-down', type: 'cursor-move' }],
 	['left', { name: 'cursor-left', type: 'cursor-move' }],
