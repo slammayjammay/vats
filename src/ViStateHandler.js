@@ -17,7 +17,7 @@ class ViStateHandler {
 			['cursor-to-document-bottom', (state) => ({ cursorY: state.documentHeight, scrollY: state.documentHeight - state.windowHeight })],
 
 			['cursor-to-window-top', (state) => ({ cursorY: state.scrollY })],
-			['cursor-to-window-middle', (state) => ({ cursorY: state.scrollY + ~~(state.windowHeight / 2) })],
+			['cursor-to-window-middle', (state) => ({ cursorY: state.scrollY + ~~(Math.min(state.documentHeight, state.windowHeight) / 2) })],
 			['cursor-to-window-bottom', (state) => ({ cursorY: state.scrollY + state.windowHeight })],
 
 			// TODO: scrolling needs to be more complex than this
@@ -87,22 +87,36 @@ class ViStateHandler {
 	 */
 	setState(state, target) {
 		const newEntries = Object.entries(target);
-
 		if (newEntries.length === 0) {
-			return state;
+			return false;
 		}
 
-		const adjustCursorX = target.scrollX !== undefined && target.cursorX === undefined;
-		const adjustCursorY = target.scrollY !== undefined && target.cursorY === undefined;
-
 		const old = {};
-		const previousCursorX = state.cursorX;
-		const previousCursorY = state.cursorY;
-
 		newEntries.forEach(([key, val]) => {
 			old[key] = state[key];
 			state[key] = val;
 		});
+
+		this.clampState(state);
+
+		for (const key of Object.keys(old)) {
+			if (state[key] !== old[key]) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Ensure no weird negative values or cursor being outside window, etc.
+	 */
+	clampState(state, target = {}) {
+		const adjustCursorX = target.scrollX !== undefined && target.cursorX === undefined;
+		const adjustCursorY = target.scrollY !== undefined && target.cursorY === undefined;
+
+		const previousCursorX = state.cursorX;
+		const previousCursorY = state.cursorY;
 
 		// clamp cursor position
 		state.cursorX = Math.min(Math.max(0, state.cursorX), state.documentWidth);
@@ -131,14 +145,6 @@ class ViStateHandler {
 		} else {
 			state.scrollY = this.correctScrollY(state, previousCursorY);
 		}
-
-		for (const key of Object.keys(old)) {
-			if (state[key] !== old[key]) {
-				return true;
-			}
-		}
-
-		return false;
 	}
 
 	isCursorXInsideWindow({ cursorX, scrollX, windowWidth }) {
