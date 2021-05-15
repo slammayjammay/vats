@@ -64,6 +64,14 @@ class CommandMode {
 		return new Promise(resolve => this._resolve = resolve);
 	}
 
+	getLine() {
+		return this.rl.line;
+	}
+
+	getPrompt() {
+		return this.rl._prompt;
+	}
+
 	quit() {
 		if (!this._isRunning) {
 			return;
